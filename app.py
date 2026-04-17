@@ -181,6 +181,9 @@ def load_all():
     # Stock
     for c in ["DISPONIBLE","NV","OC","ST"]:
         stock[c] = pd.to_numeric(stock[c], errors="coerce").fillna(0)
+    stock["CODIGO_DEPOSITO"] = pd.to_numeric(stock["CODIGO_DEPOSITO"], errors="coerce").fillna(0).astype(int)
+    # Filtro global: solo depósitos relevantes (1=General, 12, 15)
+    stock = stock[stock["CODIGO_DEPOSITO"].isin([1, 12, 15])]
 
     # Gastos
     gastos["W_FCHMOV"] = pd.to_datetime(gastos["W_FCHMOV"], errors="coerce")
@@ -478,16 +481,31 @@ def dashboard():
         stock_pos = stock[stock["DISPONIBLE"] > 0].copy()
 
         # ── Filtros stock ──────────────────────────────────────────────────────
-        sf1c, sf2c = st.columns([2, 2])
+        sf1c, sf2c, sf3c = st.columns([2, 2, 2])
         with sf1c:
+            dep_opts = sorted(stock_pos["CODIGO_DEPOSITO"].unique().tolist())
+            dep_labels = {d: f"Depósito {d}" for d in dep_opts}
+            if "NOMBRE_DEPOSITO" in stock_pos.columns:
+                for d in dep_opts:
+                    name = stock_pos[stock_pos["CODIGO_DEPOSITO"]==d]["NOMBRE_DEPOSITO"].iloc[0] \
+                           if not stock_pos[stock_pos["CODIGO_DEPOSITO"]==d].empty else ""
+                    if name and str(name).strip():
+                        dep_labels[d] = f"{d} — {str(name).strip()}"
+            dep_sel = st.multiselect("🏭 Depósito", dep_opts,
+                                     default=dep_opts,
+                                     format_func=lambda d: dep_labels.get(d, str(d)),
+                                     key="st_dep")
+        with sf2c:
             s_marcas = sorted(stock_pos["Marca"].dropna().unique().tolist())
             s_marca_sel = st.multiselect("🏷️ Marca", s_marcas,
                                          placeholder="Todas las marcas", key="st_marca")
-        with sf2c:
+        with sf3c:
             s_cats = sorted(stock_pos["SubCategoria"].dropna().unique().tolist())
             s_cat_sel = st.multiselect("📂 Categoría", s_cats,
                                        placeholder="Todas las categorías", key="st_cat")
         sf = stock_pos.copy()
+        if dep_sel:
+            sf = sf[sf["CODIGO_DEPOSITO"].isin(dep_sel)]
         if s_marca_sel:
             sf = sf[sf["Marca"].isin(s_marca_sel)]
         if s_cat_sel:
