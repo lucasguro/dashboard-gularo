@@ -170,7 +170,17 @@ def load_all():
 
     # Ventas
     ventas["Fecha"]    = pd.to_datetime(ventas["Fecha"], errors="coerce")
-    ventas["Precio"]   = pd.to_numeric(ventas["Precio"], errors="coerce").fillna(0)
+
+    # Precio usa formato argentino: punto=miles, coma=decimal  →  "92.923,60" o "92923,6"
+    def parse_ars(col):
+        return (col.astype(str)
+                   .str.replace(r"[$ ]", "", regex=True)   # quitar $ y espacios
+                   .str.replace(".", "", regex=False)        # quitar separador de miles
+                   .str.replace(",", ".", regex=False)       # coma decimal → punto
+                   .pipe(pd.to_numeric, errors="coerce")
+                   .fillna(0))
+
+    ventas["Precio"]   = parse_ars(ventas["Precio"])
     ventas["Cantidad"] = pd.to_numeric(ventas["Cantidad"], errors="coerce").fillna(0)
     ventas["Total"]    = ventas["Precio"] * ventas["Cantidad"]
 
