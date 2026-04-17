@@ -329,25 +329,14 @@ def dashboard():
             )
             st.plotly_chart(fig_dual, use_container_width=True)
 
-        c1, c2 = st.columns(2)
-        with c1:
-            top_usd = (vf.groupby("Modelo")["Total_USD"]
-                       .sum().sort_values(ascending=False).head(12).reset_index())
-            fig_um = px.bar(top_usd, x="Total_USD", y="Modelo", orientation="h",
-                            title="🖱️ Clic en modelo para ver detalle mensual",
-                            color="Total_USD", color_continuous_scale="YlOrBr")
-            fig_um.update_layout(**PLOTLY_THEME, showlegend=False, coloraxis_showscale=False)
-            sel_mod = st.plotly_chart(fig_um, use_container_width=True,
-                                      on_select="rerun", key="sel_mod")
-        with c2:
-            dolar_df = dolar_serie.reset_index()
-            dolar_df.columns = ["Fecha","Dólar"]
-            dolar_df = dolar_df[dolar_df["Fecha"] >= pd.Timestamp("2024-01-01")]
-            fig_tc = px.area(dolar_df, x="Fecha", y="Dólar",
-                             title="Evolución tipo de cambio (desde 2024)",
-                             color_discrete_sequence=["#FF7BA0"])
-            fig_tc.update_layout(**PLOTLY_THEME)
-            st.plotly_chart(fig_tc, use_container_width=True)
+        top_usd = (vf.groupby("Modelo")["Total_USD"]
+                   .sum().sort_values(ascending=False).head(12).reset_index())
+        fig_um = px.bar(top_usd, x="Total_USD", y="Modelo", orientation="h",
+                        title="🖱️ Clic en modelo para ver detalle mensual",
+                        color="Total_USD", color_continuous_scale="YlOrBr")
+        fig_um.update_layout(**PLOTLY_THEME, showlegend=False, coloraxis_showscale=False)
+        sel_mod = st.plotly_chart(fig_um, use_container_width=True,
+                                  on_select="rerun", key="sel_mod")
 
         # Drill-down modelo
         mod_sel = get_sel(sel_mod)
