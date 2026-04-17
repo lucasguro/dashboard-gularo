@@ -187,204 +187,180 @@ def dashboard():
 
     st.divider()
 
+    # ── helper
+    def get_sel(ev, key="y"):
+        try:
+            p = ev.selection.points[0]
+            return p.get(key) or p.get("label") or p.get("x")
+        except Exception:
+            return None
+
     # ── Tabs
-    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
-        "📈 Ventas", "💵 Ventas en USD", "💰 Deuda", "📦 Stock", "⏳ Pendientes", "💸 Gastos"
+    tab1, tab2, tab3, tab4, tab5 = st.tabs([
+        "📈 Ventas", "💰 Deuda", "📦 Stock", "⏳ Pendientes", "💸 Gastos"
     ])
 
-    # ────────────────────────────── TAB 1: VENTAS
+    # ────────────────────────────── TAB 1: VENTAS (USD)
     with tab1:
-        c1, c2 = st.columns(2)
-
-        with c1:
-            top_mod = (ventas_pos.groupby("Modelo")["Total"]
-                       .sum().sort_values(ascending=False).head(12).reset_index())
-            fig = px.bar(top_mod, x="Total", y="Modelo", orientation="h",
-                         title="🖱️ Clic en un modelo para ver detalle mensual",
-                         color="Total", color_continuous_scale="Blues")
-            fig.update_layout(**PLOTLY_THEME, showlegend=False, coloraxis_showscale=False)
-            sel = st.plotly_chart(fig, use_container_width=True,
-                                  on_select="rerun", key="modelo_click")
-
-        with c2:
-            vend = (ventas_pos.groupby("Vendedor")["Total"]
-                    .sum().sort_values(ascending=False).head(10).reset_index())
-            fig2 = px.pie(vend, values="Total", names="Vendedor",
-                          title="Ventas por Vendedor", hole=0.45)
-            fig2.update_layout(**PLOTLY_THEME)
-            st.plotly_chart(fig2, use_container_width=True)
-
-        # Evolución mensual
+        # Gráfico dual ARS / USD / TC
         if ventas_pos["Fecha"].notna().any():
-            vt = (ventas_pos.groupby(ventas_pos["Fecha"].dt.to_period("M"))["Total"]
-                  .sum().reset_index())
-            vt["Fecha"] = vt["Fecha"].astype(str)
-            fig3 = px.area(vt, x="Fecha", y="Total",
-                           title="Evolución Mensual de Ventas",
-                           color_discrete_sequence=["#4f8ef7"])
-            fig3.update_layout(**PLOTLY_THEME)
-            st.plotly_chart(fig3, use_container_width=True)
-
-        # ── Drill-down: detalle mensual del modelo seleccionado
-        modelo_sel = None
-        if sel and sel.selection and sel.selection.points:
-            modelo_sel = sel.selection.points[0].get("label") or sel.selection.points[0].get("y")
-
-        if modelo_sel:
-            st.divider()
-            st.subheader(f"📦 Detalle mensual — {modelo_sel}")
-
-            df_mod = ventas_pos[ventas_pos["Modelo"] == modelo_sel].copy()
-            df_mod["Mes"] = df_mod["Fecha"].dt.to_period("M").astype(str)
-
-            dm = df_mod.groupby("Mes").agg(
-                Unidades=("Cantidad", "sum"),
-                Total_ARS=("Total", "sum"),
-                Total_USD=("Total_USD", "sum"),
-            ).reset_index()
-
-            dc1, dc2 = st.columns(2)
-            with dc1:
-                fig_dm = px.bar(dm, x="Mes", y="Total_ARS",
-                                title=f"{modelo_sel} — Ventas mensuales ARS",
-                                color="Total_ARS", color_continuous_scale="Blues",
-                                text="Unidades")
-                fig_dm.update_traces(texttemplate="%{text} u.", textposition="outside")
-                fig_dm.update_layout(**PLOTLY_THEME, coloraxis_showscale=False,
-                                     xaxis_tickangle=-40)
-                st.plotly_chart(fig_dm, use_container_width=True)
-
-            with dc2:
-                fig_usd = px.bar(dm, x="Mes", y="Total_USD",
-                                 title=f"{modelo_sel} — Ventas mensuales USD",
-                                 color="Total_USD", color_continuous_scale="YlOrBr")
-                fig_usd.update_layout(**PLOTLY_THEME, coloraxis_showscale=False,
-                                      xaxis_tickangle=-40)
-                st.plotly_chart(fig_usd, use_container_width=True)
-
-            # Tabla resumen
-            dm_fmt = dm.copy()
-            dm_fmt["Total_ARS"] = dm_fmt["Total_ARS"].map("${:,.0f}".format)
-            dm_fmt["Total_USD"] = dm_fmt["Total_USD"].map("U$D {:,.0f}".format)
-            dm_fmt["Unidades"]  = dm_fmt["Unidades"].map("{:,.0f}".format)
-            dm_fmt.columns      = ["Mes", "Unidades", "Total ARS", "Total USD"]
-            st.dataframe(dm_fmt, use_container_width=True, hide_index=True)
-            st.divider()
-
-        st.subheader("Top 15 Clientes")
-        top_cli = (ventas_pos.groupby("Cliente")["Total"]
-                   .sum().sort_values(ascending=False).head(15).reset_index())
-        top_cli["Total"] = top_cli["Total"].map("${:,.0f}".format)
-        st.dataframe(top_cli, use_container_width=True, hide_index=True)
-
-    # ────────────────────────────── TAB 2: VENTAS EN USD
-    with tab2:
-        if ventas_pos["Fecha"].notna().any():
-            # Evolución mensual ARS vs USD en eje dual
             vm = ventas_pos.groupby(ventas_pos["Fecha"].dt.to_period("M")).agg(
                 Total=("Total","sum"), Total_USD=("Total_USD","sum"),
                 dolar_prom=("dolar_dia","mean")
             ).reset_index()
             vm["Mes"] = vm["Fecha"].astype(str)
-
             fig_dual = go.Figure()
-            fig_dual.add_trace(go.Bar(
-                name="Ventas ARS", x=vm["Mes"], y=vm["Total"],
-                marker_color="#4f8ef7", yaxis="y1", opacity=0.7
-            ))
-            fig_dual.add_trace(go.Scatter(
-                name="Ventas USD", x=vm["Mes"], y=vm["Total_USD"],
-                mode="lines+markers", marker_color="#f7c948",
-                yaxis="y2", line=dict(width=3)
-            ))
-            fig_dual.add_trace(go.Scatter(
-                name="Dólar promedio", x=vm["Mes"], y=vm["dolar_prom"],
-                mode="lines", line=dict(color="#e05c5c", dash="dot", width=2),
-                yaxis="y3"
-            ))
+            fig_dual.add_trace(go.Bar(name="Ventas ARS", x=vm["Mes"], y=vm["Total"],
+                                      marker_color="#4f8ef7", yaxis="y1", opacity=0.7))
+            fig_dual.add_trace(go.Scatter(name="Ventas USD", x=vm["Mes"], y=vm["Total_USD"],
+                                          mode="lines+markers", marker_color="#f7c948",
+                                          yaxis="y2", line=dict(width=3)))
+            fig_dual.add_trace(go.Scatter(name="Dólar promedio", x=vm["Mes"], y=vm["dolar_prom"],
+                                          mode="lines", line=dict(color="#e05c5c", dash="dot", width=2),
+                                          yaxis="y3"))
             fig_dual.update_layout(
                 paper_bgcolor="#1e1e2e", plot_bgcolor="#1e1e2e",
-                font=dict(color="#e0e0e0"),
-                margin=dict(t=50, b=60, l=40, r=80),
+                font=dict(color="#e0e0e0"), margin=dict(t=50, b=60, l=40, r=80),
                 title="Ventas mensuales: ARS vs USD vs Tipo de cambio",
-                xaxis  =dict(gridcolor="#2a2a3e", linecolor="#2a2a3e"),
-                yaxis  =dict(title=dict(text="ARS",  font=dict(color="#4f8ef7")), gridcolor="#2a2a3e"),
-                yaxis2 =dict(title=dict(text="USD",  font=dict(color="#f7c948")),
-                             overlaying="y", side="right", gridcolor="rgba(0,0,0,0)"),
-                yaxis3 =dict(title=dict(text="$/USD", font=dict(color="#e05c5c")),
-                             overlaying="y", side="right", anchor="free",
-                             position=0.97, gridcolor="rgba(0,0,0,0)"),
-                legend=dict(orientation="h", y=-0.2),
-                hovermode="x unified",
+                xaxis=dict(gridcolor="#2a2a3e", linecolor="#2a2a3e"),
+                yaxis =dict(title=dict(text="ARS", font=dict(color="#4f8ef7")), gridcolor="#2a2a3e"),
+                yaxis2=dict(title=dict(text="USD", font=dict(color="#f7c948")),
+                            overlaying="y", side="right", gridcolor="rgba(0,0,0,0)"),
+                yaxis3=dict(title=dict(text="$/USD", font=dict(color="#e05c5c")),
+                            overlaying="y", side="right", anchor="free",
+                            position=0.97, gridcolor="rgba(0,0,0,0)"),
+                legend=dict(orientation="h", y=-0.2), hovermode="x unified",
             )
             st.plotly_chart(fig_dual, use_container_width=True)
 
         c1, c2 = st.columns(2)
         with c1:
-            # Top modelos en USD
             top_usd = (ventas_pos.groupby("Modelo")["Total_USD"]
                        .sum().sort_values(ascending=False).head(12).reset_index())
             fig_um = px.bar(top_usd, x="Total_USD", y="Modelo", orientation="h",
-                            title="Top 12 Modelos por USD vendido",
+                            title="🖱️ Clic en modelo para ver detalle mensual",
                             color="Total_USD", color_continuous_scale="YlOrBr")
             fig_um.update_layout(**PLOTLY_THEME, showlegend=False, coloraxis_showscale=False)
-            st.plotly_chart(fig_um, use_container_width=True)
-
+            sel_mod = st.plotly_chart(fig_um, use_container_width=True,
+                                      on_select="rerun", key="sel_mod")
         with c2:
-            # Evolución del tipo de cambio
             dolar_df = dolar_serie.reset_index()
-            dolar_df.columns = ["Fecha", "Dólar"]
+            dolar_df.columns = ["Fecha","Dólar"]
             dolar_df = dolar_df[dolar_df["Fecha"] >= pd.Timestamp("2024-01-01")]
             fig_tc = px.area(dolar_df, x="Fecha", y="Dólar",
-                             title="Evolución del tipo de cambio (desde 2024)",
+                             title="Evolución tipo de cambio (desde 2024)",
                              color_discrete_sequence=["#e05c5c"])
             fig_tc.update_layout(**PLOTLY_THEME)
             st.plotly_chart(fig_tc, use_container_width=True)
 
-        # Tabla: ventas por cliente en ARS y USD
-        st.subheader("Top 15 Clientes — ARS y USD")
+        # Drill-down modelo
+        mod_sel = get_sel(sel_mod)
+        if mod_sel:
+            st.divider()
+            st.subheader(f"📦 Detalle mensual — {mod_sel}")
+            df_m = ventas_pos[ventas_pos["Modelo"] == mod_sel].copy()
+            df_m["Mes"] = df_m["Fecha"].dt.to_period("M").astype(str)
+            dm = df_m.groupby("Mes").agg(Unidades=("Cantidad","sum"),
+                                          Total_USD=("Total_USD","sum")).reset_index()
+            fc1, fc2 = st.columns(2)
+            with fc1:
+                fig_dd = px.bar(dm, x="Mes", y="Total_USD", text="Unidades",
+                                title=f"{mod_sel} — USD por mes",
+                                color="Total_USD", color_continuous_scale="YlOrBr")
+                fig_dd.update_traces(texttemplate="%{text:.0f} u.", textposition="outside")
+                fig_dd.update_layout(**PLOTLY_THEME, coloraxis_showscale=False, xaxis_tickangle=-40)
+                st.plotly_chart(fig_dd, use_container_width=True)
+            with fc2:
+                fig_dd2 = px.bar(dm, x="Mes", y="Unidades",
+                                 title=f"{mod_sel} — Unidades por mes",
+                                 color="Unidades", color_continuous_scale="Blues")
+                fig_dd2.update_layout(**PLOTLY_THEME, coloraxis_showscale=False, xaxis_tickangle=-40)
+                st.plotly_chart(fig_dd2, use_container_width=True)
+            dm_fmt = dm.copy()
+            dm_fmt["Total_USD"] = dm_fmt["Total_USD"].map("U$D {:,.0f}".format)
+            dm_fmt["Unidades"]  = dm_fmt["Unidades"].map("{:,.0f}".format)
+            st.dataframe(dm_fmt, use_container_width=True, hide_index=True)
+            st.divider()
+
+        st.subheader("Top 15 Clientes — USD")
         cli_usd = (ventas_pos.groupby("Cliente")
-                   .agg(Total_ARS=("Total","sum"), Total_USD=("Total_USD","sum"),
-                        Dolar_Prom=("dolar_dia","mean"))
+                   .agg(Total_USD=("Total_USD","sum"), TC_Prom=("dolar_dia","mean"))
                    .sort_values("Total_USD", ascending=False).head(15).reset_index())
-        cli_usd["Total_ARS"]   = cli_usd["Total_ARS"].map("${:,.0f}".format)
-        cli_usd["Total_USD"]   = cli_usd["Total_USD"].map("U$D {:,.0f}".format)
-        cli_usd["Dolar_Prom"]  = cli_usd["Dolar_Prom"].map("${:,.0f}".format)
-        cli_usd.columns        = ["Cliente","Ventas ARS","Ventas USD","TC Promedio"]
+        cli_usd["Total_USD"] = cli_usd["Total_USD"].map("U$D {:,.0f}".format)
+        cli_usd["TC_Prom"]   = cli_usd["TC_Prom"].map("${:,.0f}".format)
+        cli_usd.columns      = ["Cliente","Ventas USD","TC Promedio"]
         st.dataframe(cli_usd, use_container_width=True, hide_index=True)
 
-    # ────────────────────────────── TAB 3: DEUDA
-    with tab3:
+    # ────────────────────────────── TAB 2: DEUDA
+    with tab2:
         c1, c2 = st.columns(2)
-
         with c1:
             aging = pd.DataFrame({
-                "Período": ["0-30 días", "31-60 días", "61-90 días", "+90 días"],
+                "Período": ["0-30 días","31-60 días","61-90 días","+90 días"],
                 "Monto":   [deuda["SAL30"].sum(), deuda["SAL60"].sum(),
                             deuda["SALMAY60"].sum(), deuda["SALMAY90"].sum()],
-                "Color":   ["#4CAF50","#FFC107","#FF9800","#F44336"],
             })
-            fig4 = px.bar(aging, x="Período", y="Monto",
-                          title="Pirámide de Antigüedad de Deuda",
-                          color="Período",
-                          color_discrete_sequence=aging["Color"].tolist())
-            fig4.update_layout(**PLOTLY_THEME, showlegend=False)
-            st.plotly_chart(fig4, use_container_width=True)
+            fig_ag = px.bar(aging, x="Período", y="Monto",
+                            title="Pirámide de Antigüedad de Deuda",
+                            color="Período",
+                            color_discrete_sequence=["#4CAF50","#FFC107","#FF9800","#F44336"])
+            fig_ag.update_layout(**PLOTLY_THEME, showlegend=False)
+            st.plotly_chart(fig_ag, use_container_width=True)
 
         with c2:
             top_d = deuda.nlargest(10, "TOTCTA").copy()
-            top_d["nombre_corto"] = top_d["VTMCLH_NOMBRE"].str[:22]
-            fig5 = go.Figure()
-            fig5.add_trace(go.Bar(name="Deuda total",
-                                  x=top_d["nombre_corto"], y=top_d["TOTCTA"],
-                                  marker_color="#EF5350"))
-            fig5.add_trace(go.Bar(name="Límite de crédito",
-                                  x=top_d["nombre_corto"], y=top_d["LIMCRED"],
-                                  marker_color="#42A5F5"))
-            fig5.update_layout(**PLOTLY_THEME,
-                               title="Top 10 Deudores vs Límite",
-                               barmode="group", xaxis_tickangle=-40)
-            st.plotly_chart(fig5, use_container_width=True)
+            top_d["nc"] = top_d["VTMCLH_NOMBRE"].str[:22]
+            fig_dd = go.Figure()
+            fig_dd.add_trace(go.Bar(name="Deuda total", x=top_d["nc"], y=top_d["TOTCTA"],
+                                    marker_color="#EF5350", customdata=top_d["VTMCLH_NOMBRE"],
+                                    hovertemplate="%{customdata}<br>$%{y:,.0f}<extra></extra>"))
+            fig_dd.add_trace(go.Bar(name="Límite crédito", x=top_d["nc"], y=top_d["LIMCRED"],
+                                    marker_color="#42A5F5"))
+            fig_dd.update_layout(**PLOTLY_THEME, title="🖱️ Clic en cliente para ver antigüedad",
+                                 barmode="group", xaxis_tickangle=-40)
+            sel_deu = st.plotly_chart(fig_dd, use_container_width=True,
+                                      on_select="rerun", key="sel_deu")
+
+        # Drill-down cliente deuda
+        cli_deu_sel = get_sel(sel_deu, "x")
+        if cli_deu_sel:
+            # Buscar nombre completo (puede estar truncado)
+            match = deuda[deuda["VTMCLH_NOMBRE"].str[:22] == cli_deu_sel]
+            if match.empty:
+                match = deuda[deuda["VTMCLH_NOMBRE"].str.contains(cli_deu_sel, na=False)]
+            if not match.empty:
+                row = match.iloc[0]
+                st.divider()
+                st.subheader(f"📋 Antigüedad — {row['VTMCLH_NOMBRE']}")
+                fc1, fc2 = st.columns(2)
+                with fc1:
+                    ag_cli = pd.DataFrame({
+                        "Período": ["0-30d","31-60d","61-90d","+90d"],
+                        "Monto":   [row["SAL30"], row["SAL60"], row["SALMAY60"], row["SALMAY90"]],
+                    })
+                    fig_ag2 = px.bar(ag_cli, x="Período", y="Monto",
+                                     color="Período",
+                                     color_discrete_sequence=["#4CAF50","#FFC107","#FF9800","#F44336"],
+                                     title="Deuda por antigüedad")
+                    fig_ag2.update_layout(**PLOTLY_THEME, showlegend=False)
+                    st.plotly_chart(fig_ag2, use_container_width=True)
+                with fc2:
+                    uso_pct = (row["TOTCTA"] / row["LIMCRED"] * 100) if row["LIMCRED"] > 0 else 0
+                    fig_g = go.Figure(go.Indicator(
+                        mode="gauge+number", value=uso_pct,
+                        title={"text": "Uso de límite de crédito (%)"},
+                        gauge={"axis":{"range":[0,100]},
+                               "bar":{"color":"#EF5350"},
+                               "steps":[{"range":[0,60],"color":"#2a2a3e"},
+                                        {"range":[60,80],"color":"#5a3a0e"},
+                                        {"range":[80,100],"color":"#5a1a1a"}],
+                               "threshold":{"line":{"color":"white","width":2},"value":80}},
+                        number={"suffix":"%","valueformat":".1f"}
+                    ))
+                    fig_g.update_layout(paper_bgcolor="#1e1e2e", font=dict(color="#e0e0e0"),
+                                        height=300, margin=dict(t=60,b=20,l=20,r=20))
+                    st.plotly_chart(fig_g, use_container_width=True)
+                st.divider()
 
         st.subheader("Detalle completo de deuda")
         dd = deuda[["VTMCLH_NOMBRE","SAL30","SAL60","SALMAY60","SALMAY90","TOTCTA","LIMCRED"]].copy()
@@ -393,27 +369,56 @@ def dashboard():
         fmt = {c: "${:,.0f}" for c in ["0-30d","31-60d","61-90d","+90d","Total","Límite"]}
         st.dataframe(dd.style.format(fmt), use_container_width=True, hide_index=True)
 
-    # ────────────────────────────── TAB 4: STOCK
-    with tab4:
+    # ────────────────────────────── TAB 3: STOCK
+    with tab3:
         stock_pos = stock[stock["DISPONIBLE"] > 0].copy()
         c1, c2 = st.columns(2)
-
         with c1:
             top_st = stock_pos.nlargest(15, "DISPONIBLE").copy()
             top_st["Desc"] = top_st["STMPDH_DESCRP"].str[:38]
-            fig6 = px.bar(top_st, x="DISPONIBLE", y="Desc", orientation="h",
-                          title="Top 15 Productos con Mayor Stock",
-                          color="DISPONIBLE", color_continuous_scale="Greens")
-            fig6.update_layout(**PLOTLY_THEME, showlegend=False, coloraxis_showscale=False)
-            st.plotly_chart(fig6, use_container_width=True)
-
+            fig_st = px.bar(top_st, x="DISPONIBLE", y="Desc", orientation="h",
+                            title="🖱️ Clic en producto para ver disponible / NV / OC",
+                            color="DISPONIBLE", color_continuous_scale="Greens")
+            fig_st.update_layout(**PLOTLY_THEME, showlegend=False, coloraxis_showscale=False)
+            sel_st = st.plotly_chart(fig_st, use_container_width=True,
+                                     on_select="rerun", key="sel_st")
         with c2:
             por_cat = stock_pos.groupby("STTTPH_DESCRP")["DISPONIBLE"].sum().reset_index()
             por_cat.columns = ["Categoría","Stock"]
-            fig7 = px.pie(por_cat, values="Stock", names="Categoría",
-                          title="Stock por Categoría", hole=0.45)
-            fig7.update_layout(**PLOTLY_THEME)
-            st.plotly_chart(fig7, use_container_width=True)
+            fig_cat = px.pie(por_cat, values="Stock", names="Categoría",
+                             title="Stock por Categoría", hole=0.45)
+            fig_cat.update_layout(**PLOTLY_THEME)
+            st.plotly_chart(fig_cat, use_container_width=True)
+
+        # Drill-down producto stock
+        prod_sel = get_sel(sel_st)
+        if prod_sel:
+            match_st = stock[stock["STMPDH_DESCRP"].str[:38] == prod_sel]
+            if not match_st.empty:
+                row_st = match_st.iloc[0]
+                st.divider()
+                st.subheader(f"📦 {row_st['STMPDH_DESCRP']}")
+                fc1, fc2 = st.columns(2)
+                with fc1:
+                    st_detail = pd.DataFrame({
+                        "Estado": ["Disponible","Nota de Venta","Orden de Compra","En Stock"],
+                        "Unidades": [row_st["DISPONIBLE"], row_st["NV"],
+                                     row_st["OC"], row_st["ST"]],
+                        "Color": ["#4CAF50","#FFC107","#42A5F5","#AB47BC"]
+                    })
+                    fig_std = px.bar(st_detail, x="Estado", y="Unidades",
+                                     color="Estado",
+                                     color_discrete_sequence=st_detail["Color"].tolist(),
+                                     title="Breakdown de stock")
+                    fig_std.update_layout(**PLOTLY_THEME, showlegend=False)
+                    st.plotly_chart(fig_std, use_container_width=True)
+                with fc2:
+                    st.markdown("#### Ficha del producto")
+                    st.metric("Código",       row_st["STMPDH_ARTCOD"])
+                    st.metric("Disponible",   f"{row_st['DISPONIBLE']:,.0f} u.")
+                    st.metric("Nota de Venta",f"{row_st['NV']:,.0f} u.")
+                    st.metric("Orden Compra", f"{row_st['OC']:,.0f} u.")
+                st.divider()
 
         bajo = stock_pos[stock_pos["DISPONIBLE"] < 50].sort_values("DISPONIBLE")
         if not bajo.empty:
@@ -421,76 +426,115 @@ def dashboard():
             bb = bajo[["STMPDH_ARTCOD","STMPDH_DESCRP","DISPONIBLE"]].copy()
             bb.columns = ["Código","Descripción","Stock disponible"]
             st.dataframe(bb, use_container_width=True, hide_index=True)
-        else:
-            st.success("✅ Todos los productos tienen stock suficiente (≥ 50 u.)")
 
-    # ────────────────────────────── TAB 5: PENDIENTES
-    with tab5:
+    # ────────────────────────────── TAB 4: PENDIENTES
+    with tab4:
         c1, c2 = st.columns(2)
-
         with c1:
             top_pend = (pendientes_pos.groupby("VTMCLH_NOMBRE")["Import"]
                         .sum().sort_values(ascending=False).head(12).reset_index())
-            top_pend["nombre_corto"] = top_pend["VTMCLH_NOMBRE"].str[:28]
-            fig8 = px.bar(top_pend, x="Import", y="nombre_corto", orientation="h",
-                          title="Top 12 Clientes con Mayor Pendiente ($)",
-                          color="Import", color_continuous_scale="Oranges")
-            fig8.update_layout(**PLOTLY_THEME, showlegend=False, coloraxis_showscale=False)
-            st.plotly_chart(fig8, use_container_width=True)
-
+            top_pend["nc"] = top_pend["VTMCLH_NOMBRE"].str[:28]
+            fig_pc = px.bar(top_pend, x="Import", y="nc", orientation="h",
+                            title="🖱️ Clic en cliente para ver sus pendientes",
+                            color="Import", color_continuous_scale="Oranges")
+            fig_pc.update_layout(**PLOTLY_THEME, showlegend=False, coloraxis_showscale=False)
+            sel_pc = st.plotly_chart(fig_pc, use_container_width=True,
+                                     on_select="rerun", key="sel_pc")
         with c2:
             top_art = (pendientes_pos.groupby("STMPDH_DESCRP")["CANTID"]
                        .sum().sort_values(ascending=False).head(12).reset_index())
             top_art["Desc"] = top_art["STMPDH_DESCRP"].str[:35]
-            fig9 = px.bar(top_art, x="CANTID", y="Desc", orientation="h",
-                          title="Top 12 Artículos Pendientes (u.)",
-                          color="CANTID", color_continuous_scale="Purples")
-            fig9.update_layout(**PLOTLY_THEME, showlegend=False, coloraxis_showscale=False)
-            st.plotly_chart(fig9, use_container_width=True)
+            fig_pa = px.bar(top_art, x="CANTID", y="Desc", orientation="h",
+                            title="🖱️ Clic en artículo para ver clientes pendientes",
+                            color="CANTID", color_continuous_scale="Purples")
+            fig_pa.update_layout(**PLOTLY_THEME, showlegend=False, coloraxis_showscale=False)
+            sel_pa = st.plotly_chart(fig_pa, use_container_width=True,
+                                     on_select="rerun", key="sel_pa")
 
-        st.subheader("Detalle de pendientes")
-        pp = pendientes_pos[["VTMCLH_NOMBRE","STMPDH_DESCRP","CANTID",
-                              "Import","FCRMVI_FCHENT"]].copy()
-        pp.columns = ["Cliente","Artículo","Cantidad","Importe","Fecha entrega"]
-        pp = pp.sort_values("Importe", ascending=False)
-        pp["Importe"] = pp["Importe"].map("${:,.0f}".format)
-        st.dataframe(pp, use_container_width=True, hide_index=True)
+        # Drill-down cliente pendiente
+        cli_pend_sel = get_sel(sel_pc)
+        if cli_pend_sel:
+            st.divider()
+            st.subheader(f"⏳ Pendientes de — {cli_pend_sel}")
+            df_cp = pendientes_pos[pendientes_pos["VTMCLH_NOMBRE"].str[:28] == cli_pend_sel]
+            if df_cp.empty:
+                df_cp = pendientes_pos[pendientes_pos["VTMCLH_NOMBRE"].str.contains(cli_pend_sel, na=False)]
+            pp = df_cp[["STMPDH_DESCRP","CANTID","Import","FCRMVI_FCHENT"]].copy()
+            pp.columns = ["Artículo","Cantidad","Importe","Fecha entrega"]
+            pp = pp.sort_values("Importe", ascending=False)
+            pp["Importe"] = pp["Importe"].map("${:,.0f}".format)
+            fig_cp = px.bar(df_cp.assign(Desc=df_cp["STMPDH_DESCRP"].str[:30]),
+                            x="Import", y="Desc", orientation="h",
+                            title="Importe pendiente por artículo",
+                            color="Import", color_continuous_scale="Oranges")
+            fig_cp.update_layout(**PLOTLY_THEME, showlegend=False, coloraxis_showscale=False)
+            st.plotly_chart(fig_cp, use_container_width=True)
+            st.dataframe(pp, use_container_width=True, hide_index=True)
+            st.divider()
 
-    # ────────────────────────────── TAB 6: GASTOS
-    with tab6:
+        # Drill-down artículo pendiente
+        art_pend_sel = get_sel(sel_pa)
+        if art_pend_sel:
+            st.divider()
+            st.subheader(f"📋 Clientes pendientes — {art_pend_sel}")
+            df_ap = pendientes_pos[pendientes_pos["STMPDH_DESCRP"].str[:35] == art_pend_sel]
+            if df_ap.empty:
+                df_ap = pendientes_pos[pendientes_pos["STMPDH_DESCRP"].str.contains(art_pend_sel, na=False)]
+            ap = df_ap[["VTMCLH_NOMBRE","CANTID","Import","FCRMVI_FCHENT"]].copy()
+            ap.columns = ["Cliente","Cantidad","Importe","Fecha entrega"]
+            ap = ap.sort_values("Importe", ascending=False)
+            ap["Importe"] = ap["Importe"].map("${:,.0f}".format)
+            st.dataframe(ap, use_container_width=True, hide_index=True)
+            st.divider()
+
+    # ────────────────────────────── TAB 5: GASTOS
+    with tab5:
         gastos_pos = gastos[gastos["SALDO"] > 0].copy()
         c1, c2 = st.columns(2)
-
         with c1:
             gm = (gastos_pos.groupby(gastos_pos["W_FCHMOV"].dt.to_period("M"))["SALDO"]
                   .sum().reset_index())
             gm["W_FCHMOV"] = gm["W_FCHMOV"].astype(str)
-            fig10 = px.bar(gm, x="W_FCHMOV", y="SALDO",
-                           title="Gastos Mensuales",
-                           color="SALDO", color_continuous_scale="Reds")
-            fig10.update_layout(**PLOTLY_THEME, coloraxis_showscale=False,
-                                xaxis_tickangle=-40)
-            st.plotly_chart(fig10, use_container_width=True)
+            fig_gm = px.bar(gm, x="W_FCHMOV", y="SALDO", title="Gastos Mensuales",
+                            color="SALDO", color_continuous_scale="Reds")
+            fig_gm.update_layout(**PLOTLY_THEME, coloraxis_showscale=False, xaxis_tickangle=-40)
+            st.plotly_chart(fig_gm, use_container_width=True)
 
         with c2:
             top_prov = (gastos_pos.groupby("PVMPRH_NOMBRE")["SALDO"]
                         .sum().sort_values(ascending=False).head(10).reset_index())
-            top_prov.columns = ["Proveedor","Total"]
-            top_prov["Proveedor"] = top_prov["Proveedor"].str[:25]
-            fig11 = px.bar(top_prov, x="Total", y="Proveedor", orientation="h",
-                           title="Top 10 Proveedores por Gasto",
-                           color="Total", color_continuous_scale="Oranges")
-            fig11.update_layout(**PLOTLY_THEME, showlegend=False, coloraxis_showscale=False)
-            st.plotly_chart(fig11, use_container_width=True)
+            top_prov["Proveedor"] = top_prov["PVMPRH_NOMBRE"].str[:25]
+            fig_prov = px.bar(top_prov, x="SALDO", y="Proveedor", orientation="h",
+                              title="🖱️ Clic en proveedor para ver evolución mensual",
+                              color="SALDO", color_continuous_scale="Oranges")
+            fig_prov.update_layout(**PLOTLY_THEME, showlegend=False, coloraxis_showscale=False)
+            sel_prov = st.plotly_chart(fig_prov, use_container_width=True,
+                                       on_select="rerun", key="sel_prov")
 
-        # Por concepto
+        # Drill-down proveedor
+        prov_sel = get_sel(sel_prov)
+        if prov_sel:
+            prov_full = gastos_pos[gastos_pos["PVMPRH_NOMBRE"].str[:25] == prov_sel]["PVMPRH_NOMBRE"].iloc[0] \
+                        if not gastos_pos[gastos_pos["PVMPRH_NOMBRE"].str[:25] == prov_sel].empty else prov_sel
+            st.divider()
+            st.subheader(f"💸 Evolución mensual — {prov_full}")
+            df_pv = gastos_pos[gastos_pos["PVMPRH_NOMBRE"] == prov_full].copy()
+            df_pv["Mes"] = df_pv["W_FCHMOV"].dt.to_period("M").astype(str)
+            gp = df_pv.groupby("Mes")["SALDO"].sum().reset_index()
+            fig_pv = px.area(gp, x="Mes", y="SALDO",
+                             title=f"{prov_full} — gasto mensual",
+                             color_discrete_sequence=["#FF7043"])
+            fig_pv.update_layout(**PLOTLY_THEME, xaxis_tickangle=-40)
+            st.plotly_chart(fig_pv, use_container_width=True)
+            st.divider()
+
         por_concepto = (gastos_pos.groupby("CGMPCH_DESCRP")["SALDO"]
                         .sum().sort_values(ascending=False).reset_index())
         por_concepto.columns = ["Concepto","Total"]
-        fig12 = px.pie(por_concepto, values="Total", names="Concepto",
-                       title="Gastos por Concepto", hole=0.45)
-        fig12.update_layout(**PLOTLY_THEME)
-        st.plotly_chart(fig12, use_container_width=True)
+        fig_conc = px.pie(por_concepto, values="Total", names="Concepto",
+                          title="Gastos por Concepto", hole=0.45)
+        fig_conc.update_layout(**PLOTLY_THEME)
+        st.plotly_chart(fig_conc, use_container_width=True)
 
 
 dashboard()
