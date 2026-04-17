@@ -246,14 +246,67 @@ def dashboard():
 
     st.divider()
 
-    # ── KPIs
-    k1, k2, k3, k4, k5 = st.columns(5)
+    # ── FILTROS GLOBALES (arriba del todo, afectan KPIs y gráficos) ───────────
+    cf1, cf2, cf3, cf4 = st.columns([2, 2, 2, 2])
+    with cf1:
+        marcas_disp = sorted(ventas_pos["Marca"].dropna().unique().tolist())
+        marca_sel = st.multiselect("🏷️ Marca", marcas_disp,
+                                   placeholder="Todas las marcas", key="f_marca")
+    with cf2:
+        cats_disp = sorted(ventas_pos["SubCategoria"].dropna().unique().tolist())
+        cat_sel = st.multiselect("📂 Categoría", cats_disp,
+                                 placeholder="Todas las categorías", key="f_cat")
+    with cf3:
+        vend_disp = sorted(ventas_pos["Vendedor"].dropna().unique().tolist())
+        vend_sel = st.multiselect("👤 Vendedor", vend_disp,
+                                  placeholder="Todos", key="f_vend")
+    with cf4:
+        u12m_start = (pd.Timestamp.today() - pd.DateOffset(months=12)).date()
+        f_min = ventas_pos["Fecha"].min().date()
+        f_max = ventas_pos["Fecha"].max().date()
+        rango_v = st.date_input("📅 Período (default: U12M)",
+                                value=(max(u12m_start, f_min), f_max),
+                                min_value=f_min, max_value=f_max,
+                                key="f_fecha")
+
+    # Aplicar filtros de dropdown
+    vf = ventas_pos.copy()
+    if marca_sel:
+        vf = vf[vf["Marca"].isin(marca_sel)]
+    if cat_sel:
+        vf = vf[vf["SubCategoria"].isin(cat_sel)]
+    if vend_sel:
+        vf = vf[vf["Vendedor"].isin(vend_sel)]
+    if isinstance(rango_v, (tuple, list)) and len(rango_v) == 2:
+        vf = vf[(vf["Fecha"].dt.date >= rango_v[0]) & (vf["Fecha"].dt.date <= rango_v[1])]
+
+    # ── Leer selección activa del gráfico de modelos (persiste entre reruns)
+    def _read_chart_sel(key, field="y"):
+        try:
+            pts = st.session_state[key].selection.points
+            if pts:
+                v = pts[0].get(field) or pts[0].get("label") or pts[0].get("x")
+                return v if v else None
+        except Exception:
+            return None
+
+    active_model = _read_chart_sel("sel_mod")
+
+    # Aplicar selección de gráfico a los KPIs
+    vf_kpi = vf[vf["Modelo"] == active_model] if active_model else vf
+
+    # ── KPIs (filtrados por dropdown + clic en gráfico) ───────────────────────
     dolar_hoy = dolar_serie.iloc[-1]
-    k1.metric("💰 Ventas ARS",        f"${ventas_pos['Total'].sum():,.0f}")
-    k2.metric("💵 Ventas USD",        f"U$D {ventas_pos['Total_USD'].sum():,.0f}")
-    k3.metric("📋 Deuda total",       f"${deuda['TOTCTA'].sum():,.0f}")
-    k4.metric("📦 Stock disponible",  f"{stock['DISPONIBLE'].sum():,.0f} u.")
-    k5.metric("💱 Dólar hoy",         f"${dolar_hoy:,.2f}")
+    k1, k2, k3, k4, k5, k6 = st.columns(6)
+    k1.metric("💵 Ventas USD",       f"U$D {vf_kpi['Total_USD'].sum():,.0f}")
+    k2.metric("📦 Unidades",         f"{vf_kpi['Cantidad'].sum():,.0f}")
+    k3.metric("🛍️ Transacciones",    f"{len(vf_kpi):,}")
+    k4.metric("📋 Deuda total",      f"${deuda['TOTCTA'].sum():,.0f}")
+    k5.metric("📦 Stock disponible", f"{stock['DISPONIBLE'].sum():,.0f} u.")
+    k6.metric("💱 Dólar hoy",        f"${dolar_hoy:,.2f}")
+
+    if active_model:
+        st.info(f"🔍 Modelo activo: **{active_model}** — clic en el mismo modelo o en área vacía del gráfico para limpiar")
 
     st.divider()
 
@@ -272,46 +325,6 @@ def dashboard():
 
     # ────────────────────────────── TAB 1: VENTAS (USD)
     with tab1:
-        # ── Filtros ────────────────────────────────────────────────────────────
-        cf1, cf2, cf3, cf4 = st.columns([2, 2, 2, 2])
-        with cf1:
-            marcas_disp = sorted(ventas_pos["Marca"].dropna().unique().tolist())
-            marca_sel = st.multiselect("🏷️ Marca", marcas_disp,
-                                       placeholder="Todas las marcas", key="f_marca")
-        with cf2:
-            cats_disp = sorted(ventas_pos["SubCategoria"].dropna().unique().tolist())
-            cat_sel = st.multiselect("📂 Categoría", cats_disp,
-                                     placeholder="Todas las categorías", key="f_cat")
-        with cf3:
-            vend_disp = sorted(ventas_pos["Vendedor"].dropna().unique().tolist())
-            vend_sel = st.multiselect("👤 Vendedor", vend_disp,
-                                      placeholder="Todos", key="f_vend")
-        with cf4:
-            u12m_start = (pd.Timestamp.today() - pd.DateOffset(months=12)).date()
-            f_min = ventas_pos["Fecha"].min().date()
-            f_max = ventas_pos["Fecha"].max().date()
-            rango_v = st.date_input("📅 Período (default: U12M)",
-                                    value=(max(u12m_start, f_min), f_max),
-                                    min_value=f_min, max_value=f_max,
-                                    key="f_fecha")
-
-        # ── Aplicar filtros
-        vf = ventas_pos.copy()
-        if marca_sel:
-            vf = vf[vf["Marca"].isin(marca_sel)]
-        if cat_sel:
-            vf = vf[vf["SubCategoria"].isin(cat_sel)]
-        if vend_sel:
-            vf = vf[vf["Vendedor"].isin(vend_sel)]
-        if isinstance(rango_v, (tuple, list)) and len(rango_v) == 2:
-            vf = vf[(vf["Fecha"].dt.date >= rango_v[0]) & (vf["Fecha"].dt.date <= rango_v[1])]
-
-        # KPIs filtrados
-        kf1, kf2, kf3 = st.columns(3)
-        kf1.metric("💵 Ventas USD (filtrado)", f"U$D {vf['Total_USD'].sum():,.0f}")
-        kf2.metric("📦 Unidades (filtrado)",   f"{vf['Cantidad'].sum():,.0f}")
-        kf3.metric("🛍️ Transacciones",         f"{len(vf):,}")
-        st.divider()
 
         # Gráfico dual ARS / USD / TC
         if vf["Fecha"].notna().any():
