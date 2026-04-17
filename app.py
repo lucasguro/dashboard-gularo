@@ -200,10 +200,11 @@ def dashboard():
             top_mod = (ventas_pos.groupby("Modelo")["Total"]
                        .sum().sort_values(ascending=False).head(12).reset_index())
             fig = px.bar(top_mod, x="Total", y="Modelo", orientation="h",
-                         title="Top 12 Modelos por $ vendido",
+                         title="🖱️ Clic en un modelo para ver detalle mensual",
                          color="Total", color_continuous_scale="Blues")
             fig.update_layout(**PLOTLY_THEME, showlegend=False, coloraxis_showscale=False)
-            st.plotly_chart(fig, use_container_width=True)
+            sel = st.plotly_chart(fig, use_container_width=True,
+                                  on_select="rerun", key="modelo_click")
 
         with c2:
             vend = (ventas_pos.groupby("Vendedor")["Total"]
@@ -223,6 +224,52 @@ def dashboard():
                            color_discrete_sequence=["#4f8ef7"])
             fig3.update_layout(**PLOTLY_THEME)
             st.plotly_chart(fig3, use_container_width=True)
+
+        # ── Drill-down: detalle mensual del modelo seleccionado
+        modelo_sel = None
+        if sel and sel.selection and sel.selection.points:
+            modelo_sel = sel.selection.points[0].get("label") or sel.selection.points[0].get("y")
+
+        if modelo_sel:
+            st.divider()
+            st.subheader(f"📦 Detalle mensual — {modelo_sel}")
+
+            df_mod = ventas_pos[ventas_pos["Modelo"] == modelo_sel].copy()
+            df_mod["Mes"] = df_mod["Fecha"].dt.to_period("M").astype(str)
+
+            dm = df_mod.groupby("Mes").agg(
+                Unidades=("Cantidad", "sum"),
+                Total_ARS=("Total", "sum"),
+                Total_USD=("Total_USD", "sum"),
+            ).reset_index()
+
+            dc1, dc2 = st.columns(2)
+            with dc1:
+                fig_dm = px.bar(dm, x="Mes", y="Total_ARS",
+                                title=f"{modelo_sel} — Ventas mensuales ARS",
+                                color="Total_ARS", color_continuous_scale="Blues",
+                                text="Unidades")
+                fig_dm.update_traces(texttemplate="%{text} u.", textposition="outside")
+                fig_dm.update_layout(**PLOTLY_THEME, coloraxis_showscale=False,
+                                     xaxis_tickangle=-40)
+                st.plotly_chart(fig_dm, use_container_width=True)
+
+            with dc2:
+                fig_usd = px.bar(dm, x="Mes", y="Total_USD",
+                                 title=f"{modelo_sel} — Ventas mensuales USD",
+                                 color="Total_USD", color_continuous_scale="YlOrBr")
+                fig_usd.update_layout(**PLOTLY_THEME, coloraxis_showscale=False,
+                                      xaxis_tickangle=-40)
+                st.plotly_chart(fig_usd, use_container_width=True)
+
+            # Tabla resumen
+            dm_fmt = dm.copy()
+            dm_fmt["Total_ARS"] = dm_fmt["Total_ARS"].map("${:,.0f}".format)
+            dm_fmt["Total_USD"] = dm_fmt["Total_USD"].map("U$D {:,.0f}".format)
+            dm_fmt["Unidades"]  = dm_fmt["Unidades"].map("{:,.0f}".format)
+            dm_fmt.columns      = ["Mes", "Unidades", "Total ARS", "Total USD"]
+            st.dataframe(dm_fmt, use_container_width=True, hide_index=True)
+            st.divider()
 
         st.subheader("Top 15 Clientes")
         top_cli = (ventas_pos.groupby("Cliente")["Total"]
