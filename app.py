@@ -32,42 +32,68 @@ st.set_page_config(
 
 st.markdown("""
 <style>
-    [data-testid="stAppViewContainer"] { background-color: #0f1117; }
-    [data-testid="stHeader"] { background-color: #0f1117; }
+    /* ── Gularo brand palette ──────────────────────────────── */
+    /* Primary:   #160B7C  (deep violet)                        */
+    /* Accent:    #0FBFEF  (cyan)                               */
+    /* ──────────────────────────────────────────────────────── */
+    [data-testid="stAppViewContainer"] { background-color: #0D0852; }
+    [data-testid="stHeader"]           { background-color: #0D0852; }
     .block-container { padding-top: 1.5rem; }
+
+    /* KPI cards */
     div[data-testid="metric-container"] {
-        background: #1e1e2e;
+        background: #160B7C;
         border-radius: 12px;
         padding: 16px 20px;
-        border: 1px solid #2a2a3e;
+        border: 1px solid rgba(15,191,239,0.35);
+        box-shadow: 0 0 12px rgba(15,191,239,0.12);
     }
-    div[data-testid="metric-container"] label { color: #aaa; font-size: 0.85rem; }
+    div[data-testid="metric-container"] label {
+        color: #9BB8D4;
+        font-size: 0.85rem;
+    }
     div[data-testid="metric-container"] [data-testid="stMetricValue"] {
-        color: #fff;
+        color: #ffffff;
         font-size: 1.6rem;
         font-weight: 700;
     }
+
+    /* Tabs */
     .stTabs [data-baseweb="tab-list"] { gap: 8px; }
     .stTabs [data-baseweb="tab"] {
-        background: #1e1e2e;
+        background: #160B7C;
         border-radius: 8px;
         padding: 8px 20px;
-        color: #aaa;
+        color: #9BB8D4;
+        border: 1px solid rgba(15,191,239,0.2);
     }
     .stTabs [aria-selected="true"] {
-        background: #4f8ef7 !important;
-        color: white !important;
+        background: #0FBFEF !important;
+        color: #0D0852 !important;
+        font-weight: 700 !important;
     }
-    .stDataFrame { background: #1e1e2e; }
+
+    /* Dataframes */
+    .stDataFrame { background: #160B7C; }
+
+    /* Dividers */
+    hr { border-color: rgba(15,191,239,0.2); }
+
+    /* Sidebar (if used) */
+    [data-testid="stSidebar"] { background-color: #160B7C; }
+
+    /* Title accent */
+    h1 { color: #0FBFEF !important; }
+    h2, h3 { color: #E0E8FF !important; }
 </style>
 """, unsafe_allow_html=True)
 
 PLOTLY_THEME = {
-    "paper_bgcolor": "#1e1e2e",
-    "plot_bgcolor": "#1e1e2e",
-    "font": {"color": "#e0e0e0"},
-    "xaxis": {"gridcolor": "#2a2a3e", "linecolor": "#2a2a3e"},
-    "yaxis": {"gridcolor": "#2a2a3e", "linecolor": "#2a2a3e"},
+    "paper_bgcolor": "#160B7C",
+    "plot_bgcolor":  "#1A0E96",
+    "font":  {"color": "#E0E8FF"},
+    "xaxis": {"gridcolor": "rgba(255,255,255,0.08)", "linecolor": "rgba(255,255,255,0.15)"},
+    "yaxis": {"gridcolor": "rgba(255,255,255,0.08)", "linecolor": "rgba(255,255,255,0.15)"},
     "margin": {"t": 50, "b": 40, "l": 40, "r": 20},
 }
 
@@ -211,7 +237,7 @@ def dashboard():
             vm["Mes"] = vm["Fecha"].astype(str)
             fig_dual = go.Figure()
             fig_dual.add_trace(go.Bar(name="Ventas ARS", x=vm["Mes"], y=vm["Total"],
-                                      marker_color="#4f8ef7", yaxis="y1", opacity=0.7))
+                                      marker_color="#0FBFEF", yaxis="y1", opacity=0.7))
             fig_dual.add_trace(go.Scatter(name="Ventas USD", x=vm["Mes"], y=vm["Total_USD"],
                                           mode="lines+markers", marker_color="#f7c948",
                                           yaxis="y2", line=dict(width=3)))
@@ -219,14 +245,15 @@ def dashboard():
                                           mode="lines", line=dict(color="#e05c5c", dash="dot", width=2),
                                           yaxis="y3"))
             fig_dual.update_layout(
-                paper_bgcolor="#1e1e2e", plot_bgcolor="#1e1e2e",
-                font=dict(color="#e0e0e0"), margin=dict(t=50, b=60, l=40, r=80),
+                paper_bgcolor="#160B7C", plot_bgcolor="#1A0E96",
+                font=dict(color="#E0E8FF"), margin=dict(t=50, b=60, l=40, r=80),
                 title="Ventas mensuales: ARS vs USD vs Tipo de cambio",
-                xaxis=dict(gridcolor="#2a2a3e", linecolor="#2a2a3e"),
-                yaxis =dict(title=dict(text="ARS", font=dict(color="#4f8ef7")), gridcolor="#2a2a3e"),
+                xaxis=dict(gridcolor="rgba(255,255,255,0.08)", linecolor="rgba(255,255,255,0.15)"),
+                yaxis =dict(title=dict(text="ARS", font=dict(color="#0FBFEF")),
+                            gridcolor="rgba(255,255,255,0.08)"),
                 yaxis2=dict(title=dict(text="USD", font=dict(color="#f7c948")),
                             overlaying="y", side="right", gridcolor="rgba(0,0,0,0)"),
-                yaxis3=dict(title=dict(text="$/USD", font=dict(color="#e05c5c")),
+                yaxis3=dict(title=dict(text="$/USD", font=dict(color="#FF7BA0")),
                             overlaying="y", side="right", anchor="free",
                             position=0.97, gridcolor="rgba(0,0,0,0)"),
                 legend=dict(orientation="h", y=-0.2), hovermode="x unified",
@@ -249,7 +276,7 @@ def dashboard():
             dolar_df = dolar_df[dolar_df["Fecha"] >= pd.Timestamp("2024-01-01")]
             fig_tc = px.area(dolar_df, x="Fecha", y="Dólar",
                              title="Evolución tipo de cambio (desde 2024)",
-                             color_discrete_sequence=["#e05c5c"])
+                             color_discrete_sequence=["#FF7BA0"])
             fig_tc.update_layout(**PLOTLY_THEME)
             st.plotly_chart(fig_tc, use_container_width=True)
 
@@ -312,10 +339,10 @@ def dashboard():
             top_d["nc"] = top_d["VTMCLH_NOMBRE"].str[:22]
             fig_dd = go.Figure()
             fig_dd.add_trace(go.Bar(name="Deuda total", x=top_d["nc"], y=top_d["TOTCTA"],
-                                    marker_color="#EF5350", customdata=top_d["VTMCLH_NOMBRE"],
+                                    marker_color="#FF5E7E", customdata=top_d["VTMCLH_NOMBRE"],
                                     hovertemplate="%{customdata}<br>$%{y:,.0f}<extra></extra>"))
             fig_dd.add_trace(go.Bar(name="Límite crédito", x=top_d["nc"], y=top_d["LIMCRED"],
-                                    marker_color="#42A5F5"))
+                                    marker_color="#0FBFEF"))
             fig_dd.update_layout(**PLOTLY_THEME, title="🖱️ Clic en cliente para ver antigüedad",
                                  barmode="group", xaxis_tickangle=-40)
             sel_deu = st.plotly_chart(fig_dd, use_container_width=True,
@@ -350,14 +377,14 @@ def dashboard():
                         mode="gauge+number", value=uso_pct,
                         title={"text": "Uso de límite de crédito (%)"},
                         gauge={"axis":{"range":[0,100]},
-                               "bar":{"color":"#EF5350"},
-                               "steps":[{"range":[0,60],"color":"#2a2a3e"},
-                                        {"range":[60,80],"color":"#5a3a0e"},
-                                        {"range":[80,100],"color":"#5a1a1a"}],
-                               "threshold":{"line":{"color":"white","width":2},"value":80}},
+                               "bar":{"color":"#FF5E7E"},
+                               "steps":[{"range":[0,60],"color":"#1A0E96"},
+                                        {"range":[60,80],"color":"#3D1A5C"},
+                                        {"range":[80,100],"color":"#5A0F3A"}],
+                               "threshold":{"line":{"color":"#0FBFEF","width":2},"value":80}},
                         number={"suffix":"%","valueformat":".1f"}
                     ))
-                    fig_g.update_layout(paper_bgcolor="#1e1e2e", font=dict(color="#e0e0e0"),
+                    fig_g.update_layout(paper_bgcolor="#160B7C", font=dict(color="#E0E8FF"),
                                         height=300, margin=dict(t=60,b=20,l=20,r=20))
                     st.plotly_chart(fig_g, use_container_width=True)
                 st.divider()
@@ -523,7 +550,7 @@ def dashboard():
             gp = df_pv.groupby("Mes")["SALDO"].sum().reset_index()
             fig_pv = px.area(gp, x="Mes", y="SALDO",
                              title=f"{prov_full} — gasto mensual",
-                             color_discrete_sequence=["#FF7043"])
+                             color_discrete_sequence=["#0FBFEF"])
             fig_pv.update_layout(**PLOTLY_THEME, xaxis_tickangle=-40)
             st.plotly_chart(fig_pv, use_container_width=True)
             st.divider()
