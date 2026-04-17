@@ -23,6 +23,10 @@ DOLAR_URL = ("https://docs.google.com/spreadsheets/d/e/"
              "2PACX-1vQPneYHu78dHhzlUssSOE6zo9My4yQDwAJCg-f9k0wJbqug_otI0D4SnISsVViWgIGRjKSTeAjC26rE"
              "/pub?gid=1836470632&single=true&output=csv")
 
+PRODUCT_KEY_URL = ("https://docs.google.com/spreadsheets/d/e/"
+                   "2PACX-1vQsCFlbhmjGK3ovcxr3lP5RNAoCz0zkTGpgu1SEvCaQxeMxGibnIL_HIwzL0nifpTuP9JCArpglIhD-"
+                   "/pub?gid=0&single=true&output=csv")
+
 st.set_page_config(
     page_title="Dashboard Stromberg",
     page_icon="📊",
@@ -135,6 +139,21 @@ def cruzar_con_dolar(ventas: pd.DataFrame, dolar_serie: pd.Series) -> pd.DataFra
     return v
 
 
+@st.cache_data(ttl=3600)
+def load_product_key():
+    """Lee el Product Key y devuelve DataFrame con SKU Limpio → Marca + SubCategoria."""
+    df = pd.read_csv(PRODUCT_KEY_URL, header=1)   # fila 0 = nombres, fila 1 = headers reales
+    df.columns = df.columns.str.strip()
+    keep = ["SKU Limpio", "SubCategoria", "Marca", "MODEL"]
+    df = df[[c for c in keep if c in df.columns]].copy()
+    df["SKU Limpio"] = df["SKU Limpio"].astype(str).str.strip()
+    df["SubCategoria"] = df["SubCategoria"].astype(str).str.strip()
+    df["Marca"]        = df["Marca"].astype(str).str.strip()
+    # eliminar filas sin SKU real
+    df = df[df["SKU Limpio"].str.len() > 3]
+    return df.drop_duplicates("SKU Limpio")
+
+
 @st.cache_data(ttl=60)
 def load_all():
     try:
@@ -183,8 +202,17 @@ def dashboard():
     dolar_serie = load_dolar()
 
     # Cruce pesos → dólares
-    ventas      = cruzar_con_dolar(ventas, dolar_serie)
-    ventas_pos  = ventas[ventas["Cantidad"] > 0]
+    ventas = cruzar_con_dolar(ventas, dolar_serie)
+
+    # Cruce con Product Key → Marca + SubCategoría
+    pk = load_product_key()
+    _pk = pk[["SKU Limpio", "SubCategoria", "Marca"]].drop_duplicates("SKU Limpio")
+    ventas = ventas.merge(_pk, left_on="FCRMVI_ARTCOD", right_on="SKU Limpio", how="left"
+                         ).drop(columns=["SKU Limpio"], errors="ignore")
+    stock  = stock.merge(_pk,  left_on="STMPDH_ARTCOD",  right_on="SKU Limpio", how="left"
+                        ).drop(columns=["SKU Limpio"], errors="ignore")
+
+    ventas_pos     = ventas[ventas["Cantidad"] > 0]
     pendientes_pos = pendientes[pendientes["CANTID"] > 0]
 
     # ── Header
@@ -228,9 +256,50 @@ def dashboard():
 
     # ────────────────────────────── TAB 1: VENTAS (USD)
     with tab1:
+        # ── Filtros ────────────────────────────────────────────────────────────
+        cf1, cf2, cf3, cf4 = st.columns([2, 2, 2, 2])
+        with cf1:
+            marcas_disp = sorted(ventas_pos["Marca"].dropna().unique().tolist())
+            marca_sel = st.multiselect("🏷️ Marca", marcas_disp,
+                                       placeholder="Todas las marcas", key="f_marca")
+        with cf2:
+            cats_disp = sorted(ventas_pos["SubCategoria"].dropna().unique().tolist())
+            cat_sel = st.multiselect("📂 Categoría", cats_disp,
+                                     placeholder="Todas las categorías", key="f_cat")
+        with cf3:
+            vend_disp = sorted(ventas_pos["Vendedor"].dropna().unique().tolist())
+            vend_sel = st.multiselect("👤 Vendedor", vend_disp,
+                                      placeholder="Todos", key="f_vend")
+        with cf4:
+            u12m_start = (pd.Timestamp.today() - pd.DateOffset(months=12)).date()
+            f_min = ventas_pos["Fecha"].min().date()
+            f_max = ventas_pos["Fecha"].max().date()
+            rango_v = st.date_input("📅 Período (default: U12M)",
+                                    value=(max(u12m_start, f_min), f_max),
+                                    min_value=f_min, max_value=f_max,
+                                    key="f_fecha")
+
+        # ── Aplicar filtros
+        vf = ventas_pos.copy()
+        if marca_sel:
+            vf = vf[vf["Marca"].isin(marca_sel)]
+        if cat_sel:
+            vf = vf[vf["SubCategoria"].isin(cat_sel)]
+        if vend_sel:
+            vf = vf[vf["Vendedor"].isin(vend_sel)]
+        if isinstance(rango_v, (tuple, list)) and len(rango_v) == 2:
+            vf = vf[(vf["Fecha"].dt.date >= rango_v[0]) & (vf["Fecha"].dt.date <= rango_v[1])]
+
+        # KPIs filtrados
+        kf1, kf2, kf3 = st.columns(3)
+        kf1.metric("💵 Ventas USD (filtrado)", f"U$D {vf['Total_USD'].sum():,.0f}")
+        kf2.metric("📦 Unidades (filtrado)",   f"{vf['Cantidad'].sum():,.0f}")
+        kf3.metric("🛍️ Transacciones",         f"{len(vf):,}")
+        st.divider()
+
         # Gráfico dual ARS / USD / TC
-        if ventas_pos["Fecha"].notna().any():
-            vm = ventas_pos.groupby(ventas_pos["Fecha"].dt.to_period("M")).agg(
+        if vf["Fecha"].notna().any():
+            vm = vf.groupby(vf["Fecha"].dt.to_period("M")).agg(
                 Total=("Total","sum"), Total_USD=("Total_USD","sum"),
                 dolar_prom=("dolar_dia","mean")
             ).reset_index()
@@ -262,7 +331,7 @@ def dashboard():
 
         c1, c2 = st.columns(2)
         with c1:
-            top_usd = (ventas_pos.groupby("Modelo")["Total_USD"]
+            top_usd = (vf.groupby("Modelo")["Total_USD"]
                        .sum().sort_values(ascending=False).head(12).reset_index())
             fig_um = px.bar(top_usd, x="Total_USD", y="Modelo", orientation="h",
                             title="🖱️ Clic en modelo para ver detalle mensual",
@@ -285,7 +354,7 @@ def dashboard():
         if mod_sel:
             st.divider()
             st.subheader(f"📦 Detalle mensual — {mod_sel}")
-            df_m = ventas_pos[ventas_pos["Modelo"] == mod_sel].copy()
+            df_m = vf[vf["Modelo"] == mod_sel].copy()
             df_m["Mes"] = df_m["Fecha"].dt.to_period("M").astype(str)
             dm = df_m.groupby("Mes").agg(Unidades=("Cantidad","sum"),
                                           Total_USD=("Total_USD","sum")).reset_index()
@@ -309,8 +378,27 @@ def dashboard():
             st.dataframe(dm_fmt, use_container_width=True, hide_index=True)
             st.divider()
 
+        # Desglose por Marca y SubCategoría
+        bm1, bm2 = st.columns(2)
+        with bm1:
+            marca_agg = (vf.groupby("Marca")["Total_USD"].sum()
+                         .sort_values(ascending=False).reset_index())
+            fig_marca = px.pie(marca_agg, values="Total_USD", names="Marca",
+                               title="Ventas USD por Marca", hole=0.4,
+                               color_discrete_sequence=px.colors.sequential.Teal)
+            fig_marca.update_layout(**PLOTLY_THEME)
+            st.plotly_chart(fig_marca, use_container_width=True)
+        with bm2:
+            cat_agg = (vf.groupby("SubCategoria")["Total_USD"].sum()
+                       .sort_values(ascending=False).reset_index())
+            fig_cat_v = px.bar(cat_agg, x="Total_USD", y="SubCategoria", orientation="h",
+                               title="Ventas USD por Categoría",
+                               color="Total_USD", color_continuous_scale="Blues")
+            fig_cat_v.update_layout(**PLOTLY_THEME, coloraxis_showscale=False)
+            st.plotly_chart(fig_cat_v, use_container_width=True)
+
         st.subheader("Top 15 Clientes — USD")
-        cli_usd = (ventas_pos.groupby("Cliente")
+        cli_usd = (vf.groupby("Cliente")
                    .agg(Total_USD=("Total_USD","sum"), TC_Prom=("dolar_dia","mean"))
                    .sort_values("Total_USD", ascending=False).head(15).reset_index())
         cli_usd["Total_USD"] = cli_usd["Total_USD"].map("U$D {:,.0f}".format)
@@ -399,9 +487,27 @@ def dashboard():
     # ────────────────────────────── TAB 3: STOCK
     with tab3:
         stock_pos = stock[stock["DISPONIBLE"] > 0].copy()
+
+        # ── Filtros stock ──────────────────────────────────────────────────────
+        sf1c, sf2c = st.columns([2, 2])
+        with sf1c:
+            s_marcas = sorted(stock_pos["Marca"].dropna().unique().tolist())
+            s_marca_sel = st.multiselect("🏷️ Marca", s_marcas,
+                                         placeholder="Todas las marcas", key="st_marca")
+        with sf2c:
+            s_cats = sorted(stock_pos["SubCategoria"].dropna().unique().tolist())
+            s_cat_sel = st.multiselect("📂 Categoría", s_cats,
+                                       placeholder="Todas las categorías", key="st_cat")
+        sf = stock_pos.copy()
+        if s_marca_sel:
+            sf = sf[sf["Marca"].isin(s_marca_sel)]
+        if s_cat_sel:
+            sf = sf[sf["SubCategoria"].isin(s_cat_sel)]
+        st.divider()
+
         c1, c2 = st.columns(2)
         with c1:
-            top_st = stock_pos.nlargest(15, "DISPONIBLE").copy()
+            top_st = sf.nlargest(15, "DISPONIBLE").copy()
             top_st["Desc"] = top_st["STMPDH_DESCRP"].str[:38]
             fig_st = px.bar(top_st, x="DISPONIBLE", y="Desc", orientation="h",
                             title="🖱️ Clic en producto para ver disponible / NV / OC",
@@ -410,7 +516,7 @@ def dashboard():
             sel_st = st.plotly_chart(fig_st, use_container_width=True,
                                      on_select="rerun", key="sel_st")
         with c2:
-            por_cat = stock_pos.groupby("STTTPH_DESCRP")["DISPONIBLE"].sum().reset_index()
+            por_cat = sf.groupby("STTTPH_DESCRP")["DISPONIBLE"].sum().reset_index()
             por_cat.columns = ["Categoría","Stock"]
             fig_cat = px.pie(por_cat, values="Stock", names="Categoría",
                              title="Stock por Categoría", hole=0.45)
@@ -447,7 +553,7 @@ def dashboard():
                     st.metric("Orden Compra", f"{row_st['OC']:,.0f} u.")
                 st.divider()
 
-        bajo = stock_pos[stock_pos["DISPONIBLE"] < 50].sort_values("DISPONIBLE")
+        bajo = sf[sf["DISPONIBLE"] < 50].sort_values("DISPONIBLE")
         if not bajo.empty:
             st.warning(f"⚠️ {len(bajo)} productos con stock bajo (< 50 unidades)")
             bb = bajo[["STMPDH_ARTCOD","STMPDH_DESCRP","DISPONIBLE"]].copy()
