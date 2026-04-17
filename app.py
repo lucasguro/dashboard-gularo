@@ -215,7 +215,10 @@ def dashboard():
     stock  = stock.merge(_pk,  left_on="STMPDH_ARTCOD",  right_on="SKU Limpio", how="left"
                         ).drop(columns=["SKU Limpio"], errors="ignore")
 
-    ventas_pos     = ventas[ventas["Cantidad"] > 0]
+    # Excluir devoluciones (Cantidad<=0) y notas de crédito/débito (Tipo_Pago==60)
+    # → coincide con la columna "Q" del sheet Ventas Crudo que usa el Looker
+    _tp = ventas["Tipo_Pago"].astype(str).str.strip()
+    ventas_pos = ventas[(ventas["Cantidad"] > 0) & (_tp != "60")]
     pendientes_pos = pendientes[pendientes["CANTID"] > 0]
 
     # ── Header
