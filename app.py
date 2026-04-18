@@ -231,20 +231,30 @@ def dashboard():
     ventas_pos = ventas[(ventas["Cantidad"] > 0) & (_tp != "60")]
 
     # ── Clasificación de canal (RETAIL / HOGAR / ECOMM) ────────────────
-    # Heurística — ajustable:
-    #   HOGAR = Marca "Stromberg Life" (pequeños electrodomésticos)
-    #   ECOMM = CLIENTE CONTADO o Cliente con "ML" / "MercadoLibre"
-    #   RETAIL = resto (cadenas, distribuidores, mayoristas)
-    def _canal(row):
-        cli = str(row.get("Cliente", "")).upper()
-        marca = str(row.get("Marca", "")).strip()
-        if "CONTADO" in cli or "MERCADOLIBRE" in cli or "ML " in cli or cli.strip() == "ML":
-            return "ECOMM"
-        if marca == "Stromberg Life":
-            return "HOGAR"
-        return "RETAIL"
+    # Heurística vectorizada — ajustable:
+    #   ECOMM  = CLIENTE CONTADO / MercadoLibre / Amazon / Shopify (directo al consumidor)
+    #   HOGAR  = productos Marca "Stromberg Life" (línea hogar / pequeños electro)
+    #   RETAIL = resto (cadenas, distribuidores B2B)
     ventas_pos = ventas_pos.copy()
-    ventas_pos["Canal"] = ventas_pos.apply(_canal, axis=1)
+    _cli_u = ventas_pos["Cliente"].astype(str).str.upper().str.strip()
+    _mrc_u = ventas_pos["Marca"].astype(str).str.upper().str.strip()
+
+    ecomm_mask = (
+        _cli_u.str.contains("CONTADO",        na=False) |
+        _cli_u.str.contains("MERCADOLIBRE",   na=False) |
+        _cli_u.str.contains("MERCADO LIBRE",  na=False) |
+        _cli_u.str.contains(r"\bML\b",        na=False, regex=True) |
+        _cli_u.str.contains("AMAZON",         na=False) |
+        _cli_u.str.contains("TIENDA NUBE",    na=False) |
+        _cli_u.str.contains("SHOPIFY",        na=False) |
+        _cli_u.str.contains("E[- ]?COMMERCE", na=False, regex=True) |
+        _cli_u.str.contains("ECOMM",          na=False)
+    )
+    hogar_mask = _mrc_u.str.contains("STROMBERG LIFE", na=False)
+
+    ventas_pos["Canal"] = "RETAIL"
+    ventas_pos.loc[hogar_mask, "Canal"] = "HOGAR"
+    ventas_pos.loc[ecomm_mask, "Canal"] = "ECOMM"   # ECOMM pisa a HOGAR si el cliente es ecomm
     pendientes_pos = pendientes[pendientes["CANTID"] > 0]
 
     # ── Header
