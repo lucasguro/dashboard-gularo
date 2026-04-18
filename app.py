@@ -231,30 +231,30 @@ def dashboard():
     ventas_pos = ventas[(ventas["Cantidad"] > 0) & (_tp != "60")]
 
     # ── Clasificación de canal (RETAIL / HOGAR / ECOMM) ────────────────
-    # Heurística vectorizada — ajustable:
-    #   ECOMM  = CLIENTE CONTADO / MercadoLibre / Amazon / Shopify (directo al consumidor)
-    #   HOGAR  = productos Marca "Stromberg Life" (línea hogar / pequeños electro)
-    #   RETAIL = resto (cadenas, distribuidores B2B)
+    # Reglas según filtros del Looker (Edit Filter → RegExp Contains):
+    #   RETAIL = Vendedor contiene "Gere"  (equipo Gerencia → cadenas grandes)
+    #   HOGAR  = TODO: confirmar filtro
+    #   ECOMM  = TODO: confirmar filtro
     ventas_pos = ventas_pos.copy()
-    _cli_u = ventas_pos["Cliente"].astype(str).str.upper().str.strip()
-    _mrc_u = ventas_pos["Marca"].astype(str).str.upper().str.strip()
+    _vend_u = ventas_pos["Vendedor"].astype(str).str.upper().str.strip()
+    _cli_u  = ventas_pos["Cliente"].astype(str).str.upper().str.strip()
+    _mrc_u  = ventas_pos["Marca"].astype(str).str.upper().str.strip()
 
+    retail_mask = _vend_u.str.contains("GERE", na=False, regex=True)
+
+    # Placeholders (se van a actualizar con los filtros reales de Looker)
     ecomm_mask = (
-        _cli_u.str.contains("CONTADO",        na=False) |
-        _cli_u.str.contains("MERCADOLIBRE",   na=False) |
-        _cli_u.str.contains("MERCADO LIBRE",  na=False) |
-        _cli_u.str.contains(r"\bML\b",        na=False, regex=True) |
-        _cli_u.str.contains("AMAZON",         na=False) |
-        _cli_u.str.contains("TIENDA NUBE",    na=False) |
-        _cli_u.str.contains("SHOPIFY",        na=False) |
-        _cli_u.str.contains("E[- ]?COMMERCE", na=False, regex=True) |
-        _cli_u.str.contains("ECOMM",          na=False)
+        _cli_u.str.contains("CONTADO",       na=False) |
+        _cli_u.str.contains("MERCADOLIBRE",  na=False) |
+        _cli_u.str.contains(r"\bML\b",       na=False, regex=True)
     )
     hogar_mask = _mrc_u.str.contains("STROMBERG LIFE", na=False)
 
-    ventas_pos["Canal"] = "RETAIL"
-    ventas_pos.loc[hogar_mask, "Canal"] = "HOGAR"
-    ventas_pos.loc[ecomm_mask, "Canal"] = "ECOMM"   # ECOMM pisa a HOGAR si el cliente es ecomm
+    # Asignación con precedencia RETAIL > ECOMM > HOGAR > (no clasificado = OTROS)
+    ventas_pos["Canal"] = "OTROS"
+    ventas_pos.loc[hogar_mask,  "Canal"] = "HOGAR"
+    ventas_pos.loc[ecomm_mask,  "Canal"] = "ECOMM"
+    ventas_pos.loc[retail_mask, "Canal"] = "RETAIL"   # RETAIL es el más específico, gana
     pendientes_pos = pendientes[pendientes["CANTID"] > 0]
 
     # ── Header
