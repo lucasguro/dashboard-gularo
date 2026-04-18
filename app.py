@@ -240,7 +240,10 @@ def dashboard():
     _cli_u  = ventas_pos["Cliente"].astype(str).str.upper().str.strip()
 
     retail_mask = _vend_u.str.contains("GER", na=False, regex=True)
-    ecomm_mask  = _cli_u.str.contains("CLIENTE CONTADO", na=False, regex=True)
+    ecomm_mask  = (
+        _cli_u.str.contains("CLIENTE CONTADO", na=False, regex=True) |
+        _cli_u.str.contains("CLIENTE PARA",    na=False, regex=True)   # Particulares
+    )
 
     # Asignación: HOGAR = default, RETAIL y ECOMM son excepciones
     ventas_pos["Canal"] = "HOGAR"
