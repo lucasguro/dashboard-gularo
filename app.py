@@ -229,6 +229,22 @@ def dashboard():
     # → coincide con la columna "Q" del sheet Ventas Crudo que usa el Looker
     _tp = ventas["Tipo_Pago"].astype(str).str.strip()
     ventas_pos = ventas[(ventas["Cantidad"] > 0) & (_tp != "60")]
+
+    # ── Clasificación de canal (RETAIL / HOGAR / ECOMM) ────────────────
+    # Heurística — ajustable:
+    #   HOGAR = Marca "Stromberg Life" (pequeños electrodomésticos)
+    #   ECOMM = CLIENTE CONTADO o Cliente con "ML" / "MercadoLibre"
+    #   RETAIL = resto (cadenas, distribuidores, mayoristas)
+    def _canal(row):
+        cli = str(row.get("Cliente", "")).upper()
+        marca = str(row.get("Marca", "")).strip()
+        if "CONTADO" in cli or "MERCADOLIBRE" in cli or "ML " in cli or cli.strip() == "ML":
+            return "ECOMM"
+        if marca == "Stromberg Life":
+            return "HOGAR"
+        return "RETAIL"
+    ventas_pos = ventas_pos.copy()
+    ventas_pos["Canal"] = ventas_pos.apply(_canal, axis=1)
     pendientes_pos = pendientes[pendientes["CANTID"] > 0]
 
     # ── Header
@@ -319,9 +335,149 @@ def dashboard():
             return None
 
     # ── Tabs
-    tab1, tab2, tab3, tab4, tab5 = st.tabs([
-        "📈 Ventas", "💰 Deuda", "📦 Stock", "⏳ Pendientes", "💸 Gastos"
+    tab0, tab1, tab2, tab3, tab4, tab5 = st.tabs([
+        "📊 Resumen", "📈 Ventas", "💰 Deuda", "📦 Stock", "⏳ Pendientes", "💸 Gastos"
     ])
+
+    # ────────────────────────────── TAB 0: RESUMEN (estilo Looker)
+    with tab0:
+        import datetime as _dt
+        hoy = _dt.date.today()
+        mes_ini = hoy.replace(day=1)
+        u12m_ini = (pd.Timestamp.today() - pd.DateOffset(months=12)).date()
+
+        v_hoy  = ventas_pos[ventas_pos["Fecha"].dt.date == hoy]
+        v_mes  = ventas_pos[ventas_pos["Fecha"].dt.date >= mes_ini]
+        v_u12m = ventas_pos[ventas_pos["Fecha"].dt.date >= u12m_ini]
+
+        def _canal_metrics(df, canal):
+            sub = df[df["Canal"] == canal]
+            return sub["Total"].sum(), sub["Total_USD"].sum(), sub["Cantidad"].sum()
+
+        # CSS custom para las cards estilo Looker
+        st.markdown("""
+        <style>
+        .lkr-card {
+            background: #FFFFFF; color: #1A1A1A; border-radius: 12px;
+            padding: 14px 18px; box-shadow: 0 2px 8px rgba(0,0,0,.15);
+            border: 1px solid rgba(15,191,239,.3);
+        }
+        .lkr-head {
+            text-align: center; font-weight: 700; font-size: 0.85rem;
+            padding: 10px 14px; border-radius: 10px 10px 0 0; color: white;
+            letter-spacing: 1px;
+        }
+        .lkr-head-hoy   { background: #4B57C9; }
+        .lkr-head-mes   { background: #3E4BCC; }
+        .lkr-head-u12m  { background: #2E8555; }
+        .lkr-head-sldc  { background: #2E8AD6; }
+        .lkr-head-stk   { background: #2E8AD6; color: #fff; }
+        .lkr-head-pnd   { background: #D04444; }
+        .lkr-head-ing   { background: #8D8717; }
+        .lkr-head-pf    { background: #C93B3B; }
+        .lkr-head-pv    { background: #C93B3B; }
+        .lkr-row-label  {
+            background: #3E4BCC; color: white; padding: 10px 14px;
+            font-weight: 700; border-radius: 10px 0 0 10px;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .lkr-value      { font-size: 1.55rem; font-weight: 700; color: #2E4A9C; }
+        .lkr-value-q    { color: #8B00CC; }
+        .lkr-value-usd  { color: #2E8555; }
+        .lkr-value-small{ font-size: 1.2rem; }
+        .lkr-value-red  { color: #D04444; }
+        .lkr-value-gold { color: #8D8717; }
+        .lkr-small      { font-size: 0.75rem; color: #888; text-align: center; }
+        </style>
+        """, unsafe_allow_html=True)
+
+        def _fmt_ars(v): return f"{v:,.0f}" if pd.notna(v) else "—"
+        def _fmt_usd(v): return f"{v:,.0f}" if pd.notna(v) else "—"
+        def _fmt_q(v):   return f"{v:,.0f}" if pd.notna(v) else "—"
+
+        # ── Layout principal: matriz izq + sidebar der
+        col_main, col_side = st.columns([3, 1])
+
+        with col_main:
+            # Header HOY / MES / U12M U$D
+            h1, h2, h3, h4 = st.columns([1, 2, 2, 2])
+            h1.markdown("&nbsp;", unsafe_allow_html=True)
+            h2.markdown('<div class="lkr-head lkr-head-hoy">HOY</div>', unsafe_allow_html=True)
+            h3.markdown('<div class="lkr-head lkr-head-mes">MES</div>', unsafe_allow_html=True)
+            h4.markdown('<div class="lkr-head lkr-head-u12m">U12M U$D</div>', unsafe_allow_html=True)
+
+            # Fila $ (ARS para HOY/MES, USD para U12M)
+            r1, r2, r3, r4 = st.columns([1, 2, 2, 2])
+            r1.markdown('<div class="lkr-row-label">$</div>', unsafe_allow_html=True)
+            r2.markdown(f'<div class="lkr-card" style="text-align:center"><div class="lkr-value">{_fmt_ars(v_hoy["Total"].sum())}</div></div>', unsafe_allow_html=True)
+            r3.markdown(f'<div class="lkr-card" style="text-align:center"><div class="lkr-value">{_fmt_ars(v_mes["Total"].sum())}</div></div>', unsafe_allow_html=True)
+            r4.markdown(f'<div class="lkr-card" style="text-align:center"><div class="lkr-value lkr-value-usd">{_fmt_usd(v_u12m["Total_USD"].sum())}</div></div>', unsafe_allow_html=True)
+
+            # Fila Q
+            q1, q2, q3, q4 = st.columns([1, 2, 2, 2])
+            q1.markdown('<div class="lkr-row-label" style="background:#6B2DCC">Q</div>', unsafe_allow_html=True)
+            q2.markdown(f'<div class="lkr-card" style="text-align:center"><div class="lkr-value lkr-value-q">{_fmt_q(v_hoy["Cantidad"].sum())}</div></div>', unsafe_allow_html=True)
+            q3.markdown(f'<div class="lkr-card" style="text-align:center"><div class="lkr-value lkr-value-q">{_fmt_q(v_mes["Cantidad"].sum())}</div></div>', unsafe_allow_html=True)
+            q4.markdown(f'<div class="lkr-card" style="text-align:center"><div class="lkr-value lkr-value-q">{_fmt_q(v_u12m["Cantidad"].sum())}</div></div>', unsafe_allow_html=True)
+
+            st.markdown("<br>", unsafe_allow_html=True)
+
+            # Filas por canal
+            for canal, color in [("RETAIL", "#3E4BCC"), ("HOGAR", "#3E4BCC"), ("ECOMM", "#3E4BCC")]:
+                ars_h, usd_h, _ = _canal_metrics(v_hoy, canal)
+                ars_m, usd_m, _ = _canal_metrics(v_mes, canal)
+                _, usd_u, _     = _canal_metrics(v_u12m, canal)
+                c1, c2, c3, c4 = st.columns([1, 2, 2, 2])
+                c1.markdown(f'<div class="lkr-row-label" style="background:{color}">{canal}</div>', unsafe_allow_html=True)
+                ars_h_class = "lkr-value-red" if ars_h < 0 else ""
+                c2.markdown(f'<div class="lkr-card" style="text-align:center"><div class="lkr-value lkr-value-small {ars_h_class}">{_fmt_ars(ars_h)}</div></div>', unsafe_allow_html=True)
+                c3.markdown(f'<div class="lkr-card" style="text-align:center"><div class="lkr-value lkr-value-small">{_fmt_ars(ars_m)}</div></div>', unsafe_allow_html=True)
+                c4.markdown(f'<div class="lkr-card" style="text-align:center"><div class="lkr-value lkr-value-small lkr-value-usd">{_fmt_usd(usd_u)}</div></div>', unsafe_allow_html=True)
+
+            st.markdown("<br>", unsafe_allow_html=True)
+
+            # Pend Facturar / Preventa (fila inferior)
+            p1, p2, p3 = st.columns([1, 2, 2])
+            pend_fact_usd = pendientes_pos["Import"].sum() / dolar_hoy if dolar_hoy else 0
+            preventa_usd = 0  # placeholder — requiere identificar preventa en pendientes
+            if "nCntEstimada" in pendientes_pos.columns:
+                preventa_usd = (pendientes_pos["nCntEstimada"] * pendientes_pos["Import"] / pendientes_pos["CANTID"].replace(0, 1)).sum() / dolar_hoy if dolar_hoy else 0
+            p2.markdown('<div class="lkr-head lkr-head-pf">PEND FACTURAR U$D</div>', unsafe_allow_html=True)
+            p2.markdown(f'<div class="lkr-card" style="text-align:center"><div class="lkr-value lkr-value-usd">$ {pend_fact_usd/1000:.2f}K</div></div>', unsafe_allow_html=True)
+            p3.markdown('<div class="lkr-head lkr-head-pv">PREVENTA U$D</div>', unsafe_allow_html=True)
+            p3.markdown(f'<div class="lkr-card" style="text-align:center"><div class="lkr-value lkr-value-usd">$ {preventa_usd/1000:.2f}K</div></div>', unsafe_allow_html=True)
+
+        with col_side:
+            # Saldos Comerciales
+            st.markdown('<div class="lkr-head lkr-head-sldc">🟡 SALDOS COMERCIALES</div>', unsafe_allow_html=True)
+            saldo = deuda["TOTCTA"].sum()
+            st.markdown(f'<div class="lkr-card" style="text-align:center"><div class="lkr-value">$ {saldo/1e6:.2f}M</div></div>', unsafe_allow_html=True)
+            st.markdown("<br>", unsafe_allow_html=True)
+
+            # STK / PND / ING mini-cards
+            stk = stock["DISPONIBLE"].sum()
+            pnd = pendientes_pos["CANTID"].sum()
+            ing = stock["OC"].sum()
+
+            s1, s2 = st.columns([1, 3])
+            s1.markdown('<div class="lkr-head lkr-head-stk" style="padding:14px 8px;margin:0">STK</div>', unsafe_allow_html=True)
+            s2.markdown(f'<div class="lkr-card" style="text-align:center;padding:10px"><div class="lkr-value lkr-value-small">{_fmt_q(stk)}</div></div>', unsafe_allow_html=True)
+
+            p1_, p2_ = st.columns([1, 3])
+            p1_.markdown('<div class="lkr-head lkr-head-pnd" style="padding:14px 8px;margin:0">PND</div>', unsafe_allow_html=True)
+            p2_.markdown(f'<div class="lkr-card" style="text-align:center;padding:10px"><div class="lkr-value lkr-value-small lkr-value-red">{_fmt_q(pnd)}</div></div>', unsafe_allow_html=True)
+
+            i1, i2 = st.columns([1, 3])
+            i1.markdown('<div class="lkr-head lkr-head-ing" style="padding:14px 8px;margin:0">ING</div>', unsafe_allow_html=True)
+            i2.markdown(f'<div class="lkr-card" style="text-align:center;padding:10px"><div class="lkr-value lkr-value-small lkr-value-gold">{_fmt_q(ing)}</div></div>', unsafe_allow_html=True)
+
+            st.markdown("<br><br>", unsafe_allow_html=True)
+
+            # Fecha + TC del día
+            st.markdown(f'<div class="lkr-card" style="text-align:center;font-size:0.85rem;color:#555">{datetime.now().strftime("%b %d, %Y, %I:%M:%S %p")}</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="lkr-card" style="text-align:center;font-weight:700;color:#2E4A9C">{dolar_hoy:,.2f}</div>', unsafe_allow_html=True)
+
+        st.caption("💡 Clasificación RETAIL/HOGAR/ECOMM es heurística (Marca=Stromberg Life → HOGAR, Cliente con CONTADO/ML → ECOMM, resto → RETAIL). Ajustable en `_canal()`.")
 
     # ────────────────────────────── TAB 1: VENTAS (USD)
     with tab1:
