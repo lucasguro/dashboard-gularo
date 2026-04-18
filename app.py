@@ -232,29 +232,21 @@ def dashboard():
 
     # ── Clasificación de canal (RETAIL / HOGAR / ECOMM) ────────────────
     # Reglas según filtros del Looker (Edit Filter → RegExp Contains):
-    #   RETAIL = Vendedor contiene "Gere"  (equipo Gerencia → cadenas grandes)
-    #   HOGAR  = TODO: confirmar filtro
-    #   ECOMM  = TODO: confirmar filtro
+    #   RETAIL = Vendedor contiene "Ger"            (equipo Gerencia)
+    #   ECOMM  = Cliente contiene "CLIENTE CONTADO" (ventas al contado / ecomm)
+    #   HOGAR  = NOT RETAIL AND NOT ECOMM           (resto, por exclusión)
     ventas_pos = ventas_pos.copy()
     _vend_u = ventas_pos["Vendedor"].astype(str).str.upper().str.strip()
     _cli_u  = ventas_pos["Cliente"].astype(str).str.upper().str.strip()
-    _mrc_u  = ventas_pos["Marca"].astype(str).str.upper().str.strip()
 
-    retail_mask = _vend_u.str.contains("GERE", na=False, regex=True)
+    retail_mask = _vend_u.str.contains("GER", na=False, regex=True)
+    ecomm_mask  = _cli_u.str.contains("CLIENTE CONTADO", na=False, regex=True)
 
-    # Placeholders (se van a actualizar con los filtros reales de Looker)
-    ecomm_mask = (
-        _cli_u.str.contains("CONTADO",       na=False) |
-        _cli_u.str.contains("MERCADOLIBRE",  na=False) |
-        _cli_u.str.contains(r"\bML\b",       na=False, regex=True)
-    )
-    hogar_mask = _mrc_u.str.contains("STROMBERG LIFE", na=False)
-
-    # Asignación con precedencia RETAIL > ECOMM > HOGAR > (no clasificado = OTROS)
-    ventas_pos["Canal"] = "OTROS"
-    ventas_pos.loc[hogar_mask,  "Canal"] = "HOGAR"
+    # Asignación: HOGAR = default, RETAIL y ECOMM son excepciones
+    ventas_pos["Canal"] = "HOGAR"
+    ventas_pos.loc[retail_mask, "Canal"] = "RETAIL"
+    # ECOMM pisa a RETAIL solo si el cliente es CLIENTE CONTADO (según filtros Looker)
     ventas_pos.loc[ecomm_mask,  "Canal"] = "ECOMM"
-    ventas_pos.loc[retail_mask, "Canal"] = "RETAIL"   # RETAIL es el más específico, gana
     pendientes_pos = pendientes[pendientes["CANTID"] > 0]
 
     # ── Header
