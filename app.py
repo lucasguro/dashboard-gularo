@@ -36,69 +36,182 @@ st.set_page_config(
 
 st.markdown("""
 <style>
-    /* ── Gularo brand palette ──────────────────────────────── */
-    /* Primary:   #160B7C  (deep violet)                        */
-    /* Accent:    #0FBFEF  (cyan)                               */
-    /* ──────────────────────────────────────────────────────── */
-    [data-testid="stAppViewContainer"] { background-color: #0D0852; }
-    [data-testid="stHeader"]           { background-color: #0D0852; }
-    .block-container { padding-top: 1.5rem; }
+    /* ── Claude Design × Gularo ────────────────────────────────────── */
+    /* Canvas (near-black w/ violet hint) + white cards + neon accents  */
+    /* Palette:                                                         */
+    /*   --bg:       #070320   (canvas, dark)                           */
+    /*   --card:     #FFFFFF   (KPI cards, full contrast)               */
+    /*   --accent:   #0FBFEF   (cyan / CTA)                             */
+    /*   --brand:    #160B7C   (Gularo violet)                          */
+    /*   --text-on-dark:  #F5F7FF                                       */
+    /*   --text-on-light: #1A1D3A                                       */
+    /*   --muted:    #6B7AA5                                            */
+    /* ─────────────────────────────────────────────────────────────── */
 
-    /* KPI cards */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+
+    html, body, [data-testid="stAppViewContainer"] * {
+        font-family: 'Inter', -apple-system, sans-serif !important;
+    }
+
+    [data-testid="stAppViewContainer"],
+    [data-testid="stHeader"] {
+        background: radial-gradient(ellipse at top, #0F0840 0%, #070320 70%) !important;
+    }
+    .block-container { padding-top: 1rem; padding-bottom: 3rem; }
+
+    /* ── KPI cards: WHITE cards w/ huge deep-violet numbers ───────── */
     div[data-testid="metric-container"] {
-        background: #160B7C;
-        border-radius: 12px;
-        padding: 16px 20px;
-        border: 1px solid rgba(15,191,239,0.35);
-        box-shadow: 0 0 12px rgba(15,191,239,0.12);
+        background: #FFFFFF;
+        border-radius: 14px;
+        padding: 18px 22px;
+        border: none;
+        box-shadow:
+            0 10px 40px -10px rgba(0,0,0,0.5),
+            0 2px 6px rgba(15,191,239,0.15);
+        transition: transform .15s ease, box-shadow .2s ease;
+    }
+    div[data-testid="metric-container"]:hover {
+        transform: translateY(-2px);
+        box-shadow:
+            0 14px 50px -10px rgba(0,0,0,0.55),
+            0 2px 12px rgba(15,191,239,0.35);
     }
     div[data-testid="metric-container"] label {
-        color: #9BB8D4;
-        font-size: 0.85rem;
+        color: #6B7AA5 !important;
+        font-size: 0.72rem !important;
+        font-weight: 600 !important;
+        text-transform: uppercase;
+        letter-spacing: 1.2px;
     }
     div[data-testid="metric-container"] [data-testid="stMetricValue"] {
-        color: #ffffff;
-        font-size: 1.6rem;
-        font-weight: 700;
+        color: #160B7C !important;
+        font-size: 2rem !important;
+        font-weight: 800 !important;
+        line-height: 1.1 !important;
+        letter-spacing: -0.02em;
+    }
+    div[data-testid="metric-container"] [data-testid="stMetricDelta"] {
+        color: #0FBFEF !important;
+        font-weight: 600;
     }
 
-    /* Tabs */
-    .stTabs [data-baseweb="tab-list"] { gap: 8px; }
+    /* ── Tabs: pill-style w/ cyan glow on active ──────────────────── */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 6px;
+        background: rgba(255,255,255,0.04);
+        padding: 4px;
+        border-radius: 12px;
+        border: 1px solid rgba(15,191,239,0.12);
+    }
     .stTabs [data-baseweb="tab"] {
-        background: #160B7C;
-        border-radius: 8px;
-        padding: 8px 20px;
-        color: #9BB8D4;
-        border: 1px solid rgba(15,191,239,0.2);
+        background: transparent;
+        border-radius: 9px;
+        padding: 10px 22px;
+        color: #9BA8D4;
+        border: none;
+        font-weight: 600;
+        font-size: 0.88rem;
+        transition: all .15s ease;
+    }
+    .stTabs [data-baseweb="tab"]:hover {
+        color: #F5F7FF;
+        background: rgba(255,255,255,0.05);
     }
     .stTabs [aria-selected="true"] {
-        background: #0FBFEF !important;
-        color: #0D0852 !important;
+        background: linear-gradient(135deg, #0FBFEF 0%, #06A6D8 100%) !important;
+        color: #070320 !important;
+        font-weight: 700 !important;
+        box-shadow: 0 4px 16px rgba(15,191,239,0.4);
+    }
+
+    /* ── Dataframes: white tables for legibility ──────────────────── */
+    .stDataFrame, .stDataFrame * {
+        background: #FFFFFF !important;
+        color: #1A1D3A !important;
+    }
+    .stDataFrame [role="columnheader"] {
+        background: #160B7C !important;
+        color: #FFFFFF !important;
         font-weight: 700 !important;
     }
 
-    /* Dataframes */
-    .stDataFrame { background: #160B7C; }
+    /* ── Typography ────────────────────────────────────────────────── */
+    h1 {
+        color: #0FBFEF !important;
+        font-weight: 800 !important;
+        letter-spacing: -0.02em !important;
+    }
+    h2 {
+        color: #F5F7FF !important;
+        font-weight: 700 !important;
+        letter-spacing: -0.01em !important;
+    }
+    h3 {
+        color: #E0E8FF !important;
+        font-weight: 600 !important;
+    }
+    p, span, div, label { color: #E0E8FF; }
 
-    /* Dividers */
-    hr { border-color: rgba(15,191,239,0.2); }
+    /* ── Form controls (multiselect, date picker) ─────────────────── */
+    .stMultiSelect [data-baseweb="select"] > div,
+    .stDateInput   [data-baseweb="input"]  > div {
+        background: rgba(255,255,255,0.06) !important;
+        border: 1px solid rgba(15,191,239,0.2) !important;
+        border-radius: 9px !important;
+    }
+    .stMultiSelect [data-baseweb="select"] > div:hover,
+    .stDateInput   [data-baseweb="input"]  > div:hover {
+        border-color: rgba(15,191,239,0.5) !important;
+    }
 
-    /* Sidebar (if used) */
-    [data-testid="stSidebar"] { background-color: #160B7C; }
+    /* ── Dividers & misc ───────────────────────────────────────────── */
+    hr {
+        border: none !important;
+        height: 1px !important;
+        background: linear-gradient(90deg, transparent 0%, rgba(15,191,239,0.3) 50%, transparent 100%) !important;
+        margin: 1.2rem 0 !important;
+    }
+    [data-testid="stSidebar"] {
+        background: #0A0530 !important;
+        border-right: 1px solid rgba(15,191,239,0.15);
+    }
 
-    /* Title accent */
-    h1 { color: #0FBFEF !important; }
-    h2, h3 { color: #E0E8FF !important; }
+    /* ── Info/warning boxes ───────────────────────────────────────── */
+    .stAlert {
+        background: rgba(15,191,239,0.08) !important;
+        border: 1px solid rgba(15,191,239,0.3) !important;
+        border-radius: 10px !important;
+    }
+    .stAlert * { color: #E0E8FF !important; }
+
+    /* ── Buttons ──────────────────────────────────────────────────── */
+    .stButton > button {
+        background: #0FBFEF !important;
+        color: #070320 !important;
+        border: none !important;
+        border-radius: 9px !important;
+        font-weight: 700 !important;
+        padding: 8px 20px !important;
+        transition: all .15s ease;
+    }
+    .stButton > button:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 6px 20px rgba(15,191,239,0.4);
+    }
 </style>
 """, unsafe_allow_html=True)
 
 PLOTLY_THEME = {
-    "paper_bgcolor": "#160B7C",
-    "plot_bgcolor":  "#1A0E96",
-    "font":  {"color": "#E0E8FF"},
-    "xaxis": {"gridcolor": "rgba(255,255,255,0.08)", "linecolor": "rgba(255,255,255,0.15)"},
-    "yaxis": {"gridcolor": "rgba(255,255,255,0.08)", "linecolor": "rgba(255,255,255,0.15)"},
+    "paper_bgcolor": "#FFFFFF",
+    "plot_bgcolor":  "#FAFBFF",
+    "font":  {"color": "#1A1D3A", "family": "Inter, sans-serif"},
+    "xaxis": {"gridcolor": "rgba(22,11,124,0.08)", "linecolor": "rgba(22,11,124,0.2)",
+              "tickfont": {"color": "#6B7AA5"}},
+    "yaxis": {"gridcolor": "rgba(22,11,124,0.08)", "linecolor": "rgba(22,11,124,0.2)",
+              "tickfont": {"color": "#6B7AA5"}},
     "margin": {"t": 50, "b": 40, "l": 40, "r": 20},
+    "title":  {"font": {"color": "#160B7C", "size": 15, "family": "Inter, sans-serif"}},
 }
 
 # ── CARGA DE DATOS ─────────────────────────────────────────────────────────────
@@ -504,18 +617,24 @@ def dashboard():
                                           mode="lines", line=dict(color="#e05c5c", dash="dot", width=2),
                                           yaxis="y3"))
             fig_dual.update_layout(
-                paper_bgcolor="#160B7C", plot_bgcolor="#1A0E96",
-                font=dict(color="#E0E8FF"), margin=dict(t=50, b=60, l=40, r=80),
-                title="Ventas mensuales: ARS vs USD vs Tipo de cambio",
-                xaxis=dict(gridcolor="rgba(255,255,255,0.08)", linecolor="rgba(255,255,255,0.15)"),
-                yaxis =dict(title=dict(text="ARS", font=dict(color="#0FBFEF")),
-                            gridcolor="rgba(255,255,255,0.08)"),
-                yaxis2=dict(title=dict(text="USD", font=dict(color="#f7c948")),
-                            overlaying="y", side="right", gridcolor="rgba(0,0,0,0)"),
-                yaxis3=dict(title=dict(text="$/USD", font=dict(color="#FF7BA0")),
+                paper_bgcolor="#FFFFFF", plot_bgcolor="#FAFBFF",
+                font=dict(color="#1A1D3A", family="Inter, sans-serif"),
+                margin=dict(t=50, b=60, l=40, r=80),
+                title=dict(text="Ventas mensuales: ARS vs USD vs Tipo de cambio",
+                           font=dict(color="#160B7C", size=15)),
+                xaxis=dict(gridcolor="rgba(22,11,124,0.08)", linecolor="rgba(22,11,124,0.2)",
+                           tickfont=dict(color="#6B7AA5")),
+                yaxis =dict(title=dict(text="ARS", font=dict(color="#0FBFEF", size=12)),
+                            gridcolor="rgba(22,11,124,0.08)", tickfont=dict(color="#6B7AA5")),
+                yaxis2=dict(title=dict(text="USD", font=dict(color="#E8A800", size=12)),
+                            overlaying="y", side="right", gridcolor="rgba(0,0,0,0)",
+                            tickfont=dict(color="#6B7AA5")),
+                yaxis3=dict(title=dict(text="$/USD", font=dict(color="#D04462", size=12)),
                             overlaying="y", side="right", anchor="free",
-                            position=0.97, gridcolor="rgba(0,0,0,0)"),
-                legend=dict(orientation="h", y=-0.2), hovermode="x unified",
+                            position=0.97, gridcolor="rgba(0,0,0,0)",
+                            tickfont=dict(color="#6B7AA5")),
+                legend=dict(orientation="h", y=-0.2, font=dict(color="#1A1D3A")),
+                hovermode="x unified",
             )
             st.plotly_chart(fig_dual, use_container_width=True)
 
@@ -642,16 +761,21 @@ def dashboard():
                     uso_pct = (row["TOTCTA"] / row["LIMCRED"] * 100) if row["LIMCRED"] > 0 else 0
                     fig_g = go.Figure(go.Indicator(
                         mode="gauge+number", value=uso_pct,
-                        title={"text": "Uso de límite de crédito (%)"},
-                        gauge={"axis":{"range":[0,100]},
-                               "bar":{"color":"#FF5E7E"},
-                               "steps":[{"range":[0,60],"color":"#1A0E96"},
-                                        {"range":[60,80],"color":"#3D1A5C"},
-                                        {"range":[80,100],"color":"#5A0F3A"}],
-                               "threshold":{"line":{"color":"#0FBFEF","width":2},"value":80}},
-                        number={"suffix":"%","valueformat":".1f"}
+                        title={"text": "Uso de límite de crédito (%)",
+                               "font": {"color": "#160B7C", "size": 14}},
+                        gauge={"axis":{"range":[0,100], "tickcolor":"#6B7AA5"},
+                               "bar":{"color":"#160B7C"},
+                               "bgcolor":"#F0F3FA",
+                               "borderwidth":2, "bordercolor":"#E2E6F0",
+                               "steps":[{"range":[0,60], "color":"#D4F5E9"},
+                                        {"range":[60,80], "color":"#FFE9C7"},
+                                        {"range":[80,100],"color":"#FFD3DC"}],
+                               "threshold":{"line":{"color":"#D04462","width":3},"value":80}},
+                        number={"suffix":"%","valueformat":".1f",
+                                "font":{"color":"#160B7C","size":34}}
                     ))
-                    fig_g.update_layout(paper_bgcolor="#160B7C", font=dict(color="#E0E8FF"),
+                    fig_g.update_layout(paper_bgcolor="#FFFFFF",
+                                        font=dict(color="#1A1D3A", family="Inter, sans-serif"),
                                         height=300, margin=dict(t=60,b=20,l=20,r=20))
                     st.plotly_chart(fig_g, use_container_width=True)
                 st.divider()
