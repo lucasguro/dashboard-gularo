@@ -557,46 +557,7 @@ def dashboard():
             st.markdown(f'<div class="lkr-card" style="text-align:center;font-size:0.85rem;color:#555">{datetime.now().strftime("%b %d, %Y, %I:%M:%S %p")}</div>', unsafe_allow_html=True)
             st.markdown(f'<div class="lkr-card" style="text-align:center;font-weight:700;color:#2E4A9C">{dolar_hoy:,.2f}</div>', unsafe_allow_html=True)
 
-        st.caption("💡 Clasificación RETAIL/HOGAR/ECOMM es heurística (Marca=Stromberg Life → HOGAR, Cliente con CONTADO/ML → ECOMM, resto → RETAIL). Ajustable en `_canal()`.")
-
-        # ── DIAGNÓSTICO vs Looker ────────────────────────────────────────
-        with st.expander("🔬 Diagnóstico de discrepancias vs Looker"):
-            # ventas SIN filtros (sólo merge con Product Key y dolar)
-            ventas_raw = ventas.copy()
-            mes_ini_d = hoy.replace(day=1)
-
-            st.markdown("**Sumas MES (mes actual) con distintos filtros:**")
-            rows = []
-            for label, df in [
-                ("Sin filtros (todo)",
-                 ventas_raw[ventas_raw["Fecha"].dt.date >= mes_ini_d]),
-                ("Cantidad > 0",
-                 ventas_raw[(ventas_raw["Fecha"].dt.date >= mes_ini_d) &
-                            (ventas_raw["Cantidad"] > 0)]),
-                ("Cantidad > 0 & Tipo_Pago ≠ 60 (actual)",
-                 ventas_pos[ventas_pos["Fecha"].dt.date >= mes_ini_d]),
-            ]:
-                rows.append({
-                    "Filtro": label,
-                    "Total ARS": df["Total"].sum(),
-                    "Cantidad": df["Cantidad"].sum(),
-                    "Rows": len(df),
-                })
-            st.table(pd.DataFrame(rows))
-
-            st.markdown("**Valores únicos de Tipo_Pago y su impacto en MES:**")
-            tp_mes = (ventas_raw[(ventas_raw["Fecha"].dt.date >= mes_ini_d) &
-                                 (ventas_raw["Cantidad"] > 0)]
-                      .groupby(ventas_raw["Tipo_Pago"].astype(str).str.strip())
-                      .agg(Total_ARS=("Total","sum"),
-                           Cantidad=("Cantidad","sum"),
-                           Rows=("Total","count"))
-                      .reset_index()
-                      .sort_values("Total_ARS", ascending=False))
-            st.table(tp_mes)
-
-            st.markdown(f"**Looker dice:** MES ARS = 251,902,124 — MES Q = 3,984")
-            st.markdown(f"**Nosotros:** MES ARS = {v_mes['Total'].sum():,.0f} — MES Q = {v_mes['Cantidad'].sum():,.0f}")
+        st.caption("💡 Clasificación RETAIL/HOGAR/ECOMM es heurística (Vendedor contiene 'GER' → RETAIL, Cliente contiene 'CLIENTE CONTADO/PARA' → ECOMM, resto → HOGAR).")
 
     # ────────────────────────────── TAB 1: VENTAS (USD)
     with tab1:
