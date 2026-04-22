@@ -2,30 +2,64 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+import numpy as np
+import json
 from datetime import datetime
 
-# ── CONFIG ────────────────────────────────────────────────────────────────────
-_BASE = ("https://docs.google.com/spreadsheets/d/e/"
-         "2PACX-1vTlq0-rgGCiZbHZoSVLNCOy-r7LSRasPGQLxK248rDK4tbksfv1Xc8jHVDcNoflsOx8qk3p-GJS9Hc_"
-         "/pub?output=csv&gid=")
+import gspread
+from google.oauth2.service_account import Credentials
 
-SHEETS = {
-    "fecha_exp":  _BASE + "1343545783",
-    "ventas":     _BASE + "1735040693",
-    "deuda":      _BASE + "700818473",
-    "stock":      _BASE + "1454621843",
-    "pendientes": _BASE + "514545578",
-    "gastos":     _BASE + "954051275",
-    "clientes":   _BASE + "197301160",
-}
+# ── GOOGLE SHEETS (via Service Account) ───────────────────────────────────────
+# IDs de los spreadsheets — en st.secrets (NO en el código)
+# Secrets requeridos en Streamlit Cloud:
+#   GCP_SERVICE_ACCOUNT  = '{ ... json del key de la SA ... }'
+#   MAIN_SHEET_ID        = '1abc...'   (el sheet con ventas/deuda/stock/gastos/etc)
+#   DOLAR_SHEET_ID       = '1xyz...'   (el sheet de tipo de cambio)
+#   PRODUCT_KEY_SHEET_ID = '1def...'   (el Product Key)
 
-DOLAR_URL = ("https://docs.google.com/spreadsheets/d/e/"
-             "2PACX-1vQPneYHu78dHhzlUssSOE6zo9My4yQDwAJCg-f9k0wJbqug_otI0D4SnISsVViWgIGRjKSTeAjC26rE"
-             "/pub?gid=1836470632&single=true&output=csv")
+# GIDs de cada tab dentro del MAIN_SHEET
+GID_FECHA_EXP  = 1343545783
+GID_VENTAS     = 1735040693
+GID_DEUDA      = 700818473
+GID_STOCK      = 1454621843
+GID_PENDIENTES = 514545578
+GID_GASTOS     = 954051275
+GID_CLIENTES   = 197301160
 
-PRODUCT_KEY_URL = ("https://docs.google.com/spreadsheets/d/e/"
-                   "2PACX-1vQsCFlbhmjGK3ovcxr3lP5RNAoCz0zkTGpgu1SEvCaQxeMxGibnIL_HIwzL0nifpTuP9JCArpglIhD-"
-                   "/pub?gid=0&single=true&output=csv")
+# GID del dólar dentro de DOLAR_SHEET
+GID_DOLAR      = 1836470632
+
+# GID del Product Key dentro de PRODUCT_KEY_SHEET (primera hoja)
+GID_PRODUCT_KEY = 0
+
+
+@st.cache_resource
+def _gspread_client():
+    """Crea el cliente gspread autenticado con Service Account (cacheado en memoria)."""
+    sa_info = json.loads(st.secrets["GCP_SERVICE_ACCOUNT"])
+    creds = Credentials.from_service_account_info(
+        sa_info,
+        scopes=[
+            "https://www.googleapis.com/auth/spreadsheets.readonly",
+            "https://www.googleapis.com/auth/drive.readonly",
+        ],
+    )
+    return gspread.authorize(creds)
+
+
+@st.cache_data(ttl=60)
+def _ws_to_df(sheet_id: str, gid: int) -> pd.DataFrame:
+    """Lee una worksheet por spreadsheet_id + gid y devuelve un DataFrame."""
+    gc = _gspread_client()
+    sh = gc.open_by_key(sheet_id)
+    ws = next((w for w in sh.worksheets() if w.id == gid), None)
+    if ws is None:
+        raise ValueError(f"No se encontró worksheet con gid={gid} en sheet {sheet_id}")
+    rows = ws.get_all_values()
+    if not rows:
+        return pd.DataFrame()
+    return pd.DataFrame(rows[1:], columns=rows[0])
+
 
 st.set_page_config(
     page_title="Dashboard Stromberg",
@@ -37,17 +71,6 @@ st.set_page_config(
 st.markdown("""
 <style>
     /* ── Claude Design × Gularo ────────────────────────────────────── */
-    /* Canvas (near-black w/ violet hint) + white cards + neon accents  */
-    /* Palette:                                                         */
-    /*   --bg:       #070320   (canvas, dark)                           */
-    /*   --card:     #FFFFFF   (KPI cards, full contrast)               */
-    /*   --accent:   #0FBFEF   (cyan / CTA)                             */
-    /*   --brand:    #160B7C   (Gularo violet)                          */
-    /*   --text-on-dark:  #F5F7FF                                       */
-    /*   --text-on-light: #1A1D3A                                       */
-    /*   --muted:    #6B7AA5                                            */
-    /* ─────────────────────────────────────────────────────────────── */
-
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
 
     html, body, [data-testid="stAppViewContainer"] * {
@@ -61,7 +84,7 @@ st.markdown("""
     .block-container { padding-top: 4rem; padding-bottom: 3rem; }
     header[data-testid="stHeader"] { background: transparent; }
 
-    /* ── KPI cards: WHITE cards w/ huge deep-violet numbers ───────── */
+    /* ── KPI cards ─────────────────────────────────────────────────── */
     div[data-testid="metric-container"] {
         background: #FFFFFF;
         border-radius: 14px;
@@ -97,7 +120,7 @@ st.markdown("""
         font-weight: 600;
     }
 
-    /* ── Tabs: pill-style w/ cyan glow on active ──────────────────── */
+    /* ── Tabs ──────────────────────────────────────────────────────── */
     .stTabs [data-baseweb="tab-list"] {
         gap: 6px;
         background: rgba(255,255,255,0.04);
@@ -126,7 +149,7 @@ st.markdown("""
         box-shadow: 0 4px 16px rgba(15,191,239,0.4);
     }
 
-    /* ── Dataframes: white tables for legibility ──────────────────── */
+    /* ── Dataframes ────────────────────────────────────────────────── */
     .stDataFrame, [data-testid="stDataFrame"] {
         background: #FFFFFF !important;
     }
@@ -145,23 +168,12 @@ st.markdown("""
     }
 
     /* ── Typography ────────────────────────────────────────────────── */
-    h1 {
-        color: #0FBFEF !important;
-        font-weight: 800 !important;
-        letter-spacing: -0.02em !important;
-    }
-    h2 {
-        color: #F5F7FF !important;
-        font-weight: 700 !important;
-        letter-spacing: -0.01em !important;
-    }
-    h3 {
-        color: #E0E8FF !important;
-        font-weight: 600 !important;
-    }
+    h1 { color: #0FBFEF !important; font-weight: 800 !important; letter-spacing: -0.02em !important; }
+    h2 { color: #F5F7FF !important; font-weight: 700 !important; letter-spacing: -0.01em !important; }
+    h3 { color: #E0E8FF !important; font-weight: 600 !important; }
     p, span, div, label { color: #E0E8FF; }
 
-    /* ── Form controls (multiselect, date picker) ─────────────────── */
+    /* ── Form controls ─────────────────────────────────────────────── */
     .stMultiSelect [data-baseweb="select"] > div,
     .stDateInput   [data-baseweb="input"]  > div {
         background: rgba(255,255,255,0.06) !important;
@@ -173,10 +185,9 @@ st.markdown("""
         border-color: rgba(15,191,239,0.5) !important;
     }
 
-    /* ── Dividers & misc ───────────────────────────────────────────── */
+    /* ── Misc ──────────────────────────────────────────────────────── */
     hr {
-        border: none !important;
-        height: 1px !important;
+        border: none !important; height: 1px !important;
         background: linear-gradient(90deg, transparent 0%, rgba(15,191,239,0.3) 50%, transparent 100%) !important;
         margin: 1.2rem 0 !important;
     }
@@ -184,23 +195,16 @@ st.markdown("""
         background: #0A0530 !important;
         border-right: 1px solid rgba(15,191,239,0.15);
     }
-
-    /* ── Info/warning boxes ───────────────────────────────────────── */
     .stAlert {
         background: rgba(15,191,239,0.08) !important;
         border: 1px solid rgba(15,191,239,0.3) !important;
         border-radius: 10px !important;
     }
     .stAlert * { color: #E0E8FF !important; }
-
-    /* ── Buttons ──────────────────────────────────────────────────── */
     .stButton > button {
-        background: #0FBFEF !important;
-        color: #070320 !important;
-        border: none !important;
-        border-radius: 9px !important;
-        font-weight: 700 !important;
-        padding: 8px 20px !important;
+        background: #0FBFEF !important; color: #070320 !important;
+        border: none !important; border-radius: 9px !important;
+        font-weight: 700 !important; padding: 8px 20px !important;
         transition: all .15s ease;
     }
     .stButton > button:hover {
@@ -222,13 +226,13 @@ PLOTLY_THEME = {
     "title":  {"font": {"color": "#160B7C", "size": 15, "family": "Inter, sans-serif"}},
 }
 
+
 # ── CARGA DE DATOS ─────────────────────────────────────────────────────────────
-@st.cache_data(ttl=300)          # refresca cada 5 min (el sheet no cambia tan seguido)
+
+@st.cache_data(ttl=300)
 def load_dolar():
-    """Lee el sheet de dólar y devuelve una Serie indexada por fecha."""
-    df = pd.read_csv(DOLAR_URL).dropna(subset=["Fecha", "Round"])
-    # El Looker usa la columna "Round" (col E de b:e → VLOOKUP col 4)
-    # Formato: $1.000,08  →  punto=miles, coma=decimal
+    df = _ws_to_df(st.secrets["DOLAR_SHEET_ID"], GID_DOLAR)
+    df = df.dropna(subset=["Fecha", "Round"])
     df["close_num"] = (
         df["Round"]
         .str.replace("$", "", regex=False)
@@ -238,171 +242,137 @@ def load_dolar():
     )
     df["fecha"] = pd.to_datetime(df["Fecha"], dayfirst=True, errors="coerce").dt.normalize()
     df = df.dropna(subset=["fecha", "close_num"])
-    # Una sola fila por fecha (promedio si hay duplicados)
     serie = df.groupby("fecha")["close_num"].mean()
-    # Expandir al rango completo y forward-fill fines de semana / feriados
     idx_completo = pd.date_range(serie.index.min(), serie.index.max(), freq="D")
     serie = serie.reindex(idx_completo).ffill()
     return serie
 
 
 def cruzar_con_dolar(ventas: pd.DataFrame, dolar_serie: pd.Series) -> pd.DataFrame:
-    """
-    Agrega columnas 'dolar_dia' y 'Total_USD' a ventas.
-    Para fechas sin cotización (finde/feriado) usa el último precio conocido.
-    """
     v = ventas.copy()
     v["fecha_join"] = v["Fecha"].dt.normalize()
     v["dolar_dia"]  = v["fecha_join"].map(dolar_serie)
-    # Si todavía quedan NaN (fecha fuera del rango del sheet) usa la media
-    fallback = dolar_serie.mean()
-    v["dolar_dia"]  = v["dolar_dia"].fillna(fallback)
+    v["dolar_dia"]  = v["dolar_dia"].fillna(dolar_serie.mean())
     v["Total_USD"]  = (v["Total"] / v["dolar_dia"]).round(2)
     return v
 
 
 @st.cache_data(ttl=3600)
 def load_product_key():
-    """Lee el Product Key y devuelve DataFrame con SKU Limpio → Marca + SubCategoria."""
-    df = pd.read_csv(PRODUCT_KEY_URL, header=1)   # fila 0 = nombres, fila 1 = headers reales
+    df = _ws_to_df(st.secrets["PRODUCT_KEY_SHEET_ID"], GID_PRODUCT_KEY)
+    # La primera fila son los headers reales (la que gspread ya leyó como header)
     df.columns = df.columns.str.strip()
     keep = ["SKU Limpio", "SubCategoria", "Marca", "MODEL"]
     df = df[[c for c in keep if c in df.columns]].copy()
-    df["SKU Limpio"] = df["SKU Limpio"].astype(str).str.strip()
+    df["SKU Limpio"]   = df["SKU Limpio"].astype(str).str.strip()
     df["SubCategoria"] = df["SubCategoria"].astype(str).str.strip()
     df["Marca"]        = df["Marca"].astype(str).str.strip()
-    # eliminar filas sin SKU real
     df = df[df["SKU Limpio"].str.len() > 3]
     return df.drop_duplicates("SKU Limpio")
 
 
 @st.cache_data(ttl=60)
 def load_all():
+    MAIN = st.secrets["MAIN_SHEET_ID"]
     try:
-        ventas     = pd.read_csv(SHEETS["ventas"])
-        deuda      = pd.read_csv(SHEETS["deuda"])
-        stock      = pd.read_csv(SHEETS["stock"])
-        gastos     = pd.read_csv(SHEETS["gastos"])
-        pendientes = pd.read_csv(SHEETS["pendientes"])
-        fecha_df   = pd.read_csv(SHEETS["fecha_exp"], header=None)
+        ventas     = _ws_to_df(MAIN, GID_VENTAS)
+        deuda      = _ws_to_df(MAIN, GID_DEUDA)
+        stock      = _ws_to_df(MAIN, GID_STOCK)
+        gastos     = _ws_to_df(MAIN, GID_GASTOS)
+        pendientes = _ws_to_df(MAIN, GID_PENDIENTES)
+        fecha_df   = _ws_to_df(MAIN, GID_FECHA_EXP)
         fecha_exp  = str(fecha_df.iloc[1, 0]).strip() if len(fecha_df) > 1 else "N/D"
     except Exception as e:
         st.error(f"❌ Error cargando datos desde Google Sheets: {e}")
         st.stop()
 
-    # Ventas
+    # ── Ventas
     ventas["Fecha"]    = pd.to_datetime(ventas["Fecha"], errors="coerce")
 
-    # Precio usa formato argentino: punto=miles, coma=decimal  →  "92.923,60" o "92923,6"
     def parse_ars(col):
         return (col.astype(str)
-                   .str.replace(r"[$ ]", "", regex=True)   # quitar $ y espacios
-                   .str.replace(".", "", regex=False)        # quitar separador de miles
-                   .str.replace(",", ".", regex=False)       # coma decimal → punto
+                   .str.replace(r"[$ ]", "", regex=True)
+                   .str.replace(".", "", regex=False)
+                   .str.replace(",", ".", regex=False)
                    .pipe(pd.to_numeric, errors="coerce")
                    .fillna(0))
 
     ventas["Precio"]   = parse_ars(ventas["Precio"])
     ventas["Cantidad"] = pd.to_numeric(ventas["Cantidad"], errors="coerce").fillna(0)
 
-    # ── Lógica Q / Facturación replicando fórmula del Looker ────────────
-    # Q: si Modelo vacío → 0; si CRMVH_CODFO contiene CA0004/CB0004/CE0005/CEA007
-    #    → -|Cantidad| (nota de crédito); sino → Cantidad
-    # Facturación: si Modelo vacío y CRMVH_CODFO == "CA0004" → -|Precio|;
-    #              si Modelo vacío → 0; sino → Precio × Q
-    import numpy as np
+    # ── Lógica Q / Facturación (replica fórmulas del Looker)
     _mod   = ventas["Modelo"].astype(str).str.strip()
     _codfo = ventas["FCRMVH_CODFOR"].astype(str).str.strip().str.upper()
-    # Modelo vacío: string vacío, "nan", o caracter de caja vacía "☐"
     modelo_empty = _mod.isin(["", "nan", "NaN", "None", "☐"])
     is_credit    = _codfo.str.contains(r"CA0004|CB0004|CE0005|CEA007", na=False, regex=True)
     is_CA0004    = _codfo.eq("CA0004")
     is_DI_or_CI  = _codfo.isin(["DI", "CI"])
 
-    # Q: si Modelo vacío → 0; si CODFO contiene códigos de crédito → -|Cantidad|; sino → Cantidad
     ventas["Q_looker"] = np.where(modelo_empty, 0,
                           np.where(is_credit, -ventas["Cantidad"].abs(),
                                               ventas["Cantidad"]))
-    # Facturación: DI/CI → 0; Modelo vacío + CA0004 → -|Precio|; Modelo vacío → 0; sino → Precio × Q
     ventas["Facturacion"] = np.where(is_DI_or_CI, 0,
                             np.where(modelo_empty & is_CA0004, -ventas["Precio"].abs(),
                             np.where(modelo_empty, 0,
                                      ventas["Precio"] * ventas["Q_looker"])))
-
-    # Alias para no romper código existente que usa Cantidad/Total
     ventas["Cantidad"] = ventas["Q_looker"]
     ventas["Total"]    = ventas["Facturacion"]
 
-    # Deuda — viene en formato argentino (punto miles, coma decimal)
+    # ── Deuda (formato argentino)
     for c in ["SAL30","SAL60","SALMAY60","SALMAY90","TOTCTA","VALVEN","LIMCRED"]:
         deuda[c] = parse_ars(deuda[c])
 
-    # Stock
+    # ── Stock
     for c in ["DISPONIBLE","NV","OC","ST"]:
         stock[c] = pd.to_numeric(stock[c], errors="coerce").fillna(0)
     stock["CODIGO_DEPOSITO"] = pd.to_numeric(stock["CODIGO_DEPOSITO"], errors="coerce").fillna(0).astype(int)
-    # Filtro global: solo depósitos relevantes (1=General, 12, 15)
     stock = stock[stock["CODIGO_DEPOSITO"].isin([1, 12, 15])]
 
-    # Gastos
+    # ── Gastos
     gastos["W_FCHMOV"] = pd.to_datetime(gastos["W_FCHMOV"], errors="coerce")
     gastos["SALDO"]    = pd.to_numeric(gastos["SALDO"], errors="coerce").fillna(0)
 
-    # Pendientes
-    pendientes["CANTID"]           = pd.to_numeric(pendientes["CANTID"], errors="coerce").fillna(0)
-    pendientes["Import"]           = pd.to_numeric(pendientes["Import"], errors="coerce").fillna(0)
-    pendientes["nCntEstimada"]     = pd.to_numeric(pendientes["nCntEstimada"], errors="coerce").fillna(0)
-    pendientes["FCRMVI_FCHENT"]    = pd.to_datetime(pendientes["FCRMVI_FCHENT"], errors="coerce")
+    # ── Pendientes
+    pendientes["CANTID"]        = pd.to_numeric(pendientes["CANTID"], errors="coerce").fillna(0)
+    pendientes["Import"]        = pd.to_numeric(pendientes["Import"], errors="coerce").fillna(0)
+    pendientes["nCntEstimada"]  = pd.to_numeric(pendientes["nCntEstimada"], errors="coerce").fillna(0)
+    pendientes["FCRMVI_FCHENT"] = pd.to_datetime(pendientes["FCRMVI_FCHENT"], errors="coerce")
 
     return ventas, deuda, stock, gastos, pendientes, fecha_exp
 
 
 # ── DASHBOARD ─────────────────────────────────────────────────────────────────
-@st.fragment(run_every=120)   # se refresca cada 2 minutos
+@st.fragment(run_every=120)
 def dashboard():
     ventas, deuda, stock, gastos, pendientes, fecha_exp = load_all()
     dolar_serie = load_dolar()
 
-    # Cruce pesos → dólares
     ventas = cruzar_con_dolar(ventas, dolar_serie)
 
-    # Cruce con Product Key → Marca + SubCategoría
-    pk = load_product_key()
+    pk  = load_product_key()
     _pk = pk[["SKU Limpio", "SubCategoria", "Marca"]].drop_duplicates("SKU Limpio")
     ventas = ventas.merge(_pk, left_on="FCRMVI_ARTCOD", right_on="SKU Limpio", how="left"
                          ).drop(columns=["SKU Limpio"], errors="ignore")
     stock  = stock.merge(_pk,  left_on="STMPDH_ARTCOD",  right_on="SKU Limpio", how="left"
                         ).drop(columns=["SKU Limpio"], errors="ignore")
 
-    # ventas_pos ya viene con la lógica Q/Facturación del Looker aplicada en load_all()
-    # (Modelo vacío → 0; CA0004/CB0004/CE0005/CEA007 → -|Cant| como devolución)
     ventas_pos = ventas.copy()
 
-    # ── Clasificación de canal (RETAIL / HOGAR / ECOMM) ────────────────
-    # Reglas según filtros del Looker (Edit Filter → RegExp Contains):
-    #   RETAIL = Vendedor contiene "Ger"            (equipo Gerencia)
-    #   ECOMM  = Cliente contiene "CLIENTE CONTADO" (ventas al contado / ecomm)
-    #   HOGAR  = NOT RETAIL AND NOT ECOMM           (resto, por exclusión)
-    ventas_pos = ventas_pos.copy()
+    # ── Canal: RETAIL / HOGAR / ECOMM
     _vend_u = ventas_pos["Vendedor"].astype(str).str.upper().str.strip()
     _cli_u  = ventas_pos["Cliente"].astype(str).str.upper().str.strip()
-
     retail_mask = _vend_u.str.contains("GER", na=False, regex=True)
     ecomm_mask  = (
         _cli_u.str.contains("CLIENTE CONTADO", na=False, regex=True) |
-        _cli_u.str.contains("CLIENTE PARA",    na=False, regex=True)   # Particulares
+        _cli_u.str.contains("CLIENTE PARA",    na=False, regex=True)
     )
-
-    # Asignación: HOGAR = default, RETAIL y ECOMM son excepciones
     ventas_pos["Canal"] = "HOGAR"
     ventas_pos.loc[retail_mask, "Canal"] = "RETAIL"
-    # ECOMM pisa a RETAIL solo si el cliente es CLIENTE CONTADO (según filtros Looker)
     ventas_pos.loc[ecomm_mask,  "Canal"] = "ECOMM"
-    pendientes_pos = pendientes[pendientes["CANTID"] > 0]
 
+    pendientes_pos = pendientes[pendientes["CANTID"] > 0]
     dolar_hoy = dolar_serie.iloc[-1]
 
-    # ── helper
     def get_sel(ev, key="y"):
         try:
             p = ev.selection.points[0]
@@ -410,18 +380,15 @@ def dashboard():
         except Exception:
             return None
 
-    # ── Tabs
     tab0, tab1, tab2, tab3, tab4, tab5 = st.tabs([
         "📊 Resumen", "📈 Ventas", "💰 Deuda", "📦 Stock", "⏳ Pendientes", "💸 Gastos"
     ])
 
-    # ────────────────────────────── TAB 0: RESUMEN (estilo Looker)
+    # ────────────────────────────── TAB 0: RESUMEN
     with tab0:
         import datetime as _dt
-        hoy = _dt.date.today()
+        hoy     = _dt.date.today()
         mes_ini = hoy.replace(day=1)
-        # U12M como lo define Looker: últimos 12 meses COMPLETOS (excluye mes actual)
-        # Ej: si hoy es 20/04/2026 → desde 01/04/2025 hasta 31/03/2026
         u12m_ini = (pd.Timestamp(mes_ini) - pd.DateOffset(months=12)).date()
         u12m_fin = mes_ini - _dt.timedelta(days=1)
 
@@ -434,40 +401,29 @@ def dashboard():
             sub = df[df["Canal"] == canal]
             return sub["Total"].sum(), sub["Total_USD"].sum(), sub["Cantidad"].sum()
 
-        # CSS custom para las cards estilo Looker
         st.markdown("""
         <style>
-        .lkr-card {
-            background: #FFFFFF; color: #1A1A1A; border-radius: 12px;
-            padding: 14px 18px; box-shadow: 0 2px 8px rgba(0,0,0,.15);
-            border: 1px solid rgba(15,191,239,.3);
-        }
-        .lkr-head {
-            text-align: center; font-weight: 700; font-size: 0.85rem;
-            padding: 10px 14px; border-radius: 10px 10px 0 0; color: white;
-            letter-spacing: 1px;
-        }
-        .lkr-head-hoy   { background: #4B57C9; }
-        .lkr-head-mes   { background: #3E4BCC; }
-        .lkr-head-u12m  { background: #2E8555; }
-        .lkr-head-sldc  { background: #2E8AD6; }
-        .lkr-head-stk   { background: #2E8AD6; color: #fff; }
-        .lkr-head-pnd   { background: #D04444; }
-        .lkr-head-ing   { background: #8D8717; }
-        .lkr-head-pf    { background: #C93B3B; }
-        .lkr-head-pv    { background: #C93B3B; }
-        .lkr-row-label  {
-            background: #3E4BCC; color: white; padding: 10px 14px;
-            font-weight: 700; border-radius: 10px 0 0 10px;
-            display: flex; align-items: center; justify-content: center;
-        }
-        .lkr-value      { font-size: 1.55rem; font-weight: 700; color: #2E4A9C; }
-        .lkr-value-q    { color: #8B00CC; }
-        .lkr-value-usd  { color: #2E8555; }
-        .lkr-value-small{ font-size: 1.2rem; }
-        .lkr-value-red  { color: #D04444; }
-        .lkr-value-gold { color: #8D8717; }
-        .lkr-small      { font-size: 0.75rem; color: #888; text-align: center; }
+        .lkr-card { background:#FFFFFF; color:#1A1A1A; border-radius:12px; padding:14px 18px;
+                    box-shadow:0 2px 8px rgba(0,0,0,.15); border:1px solid rgba(15,191,239,.3); }
+        .lkr-head { text-align:center; font-weight:700; font-size:0.85rem; padding:10px 14px;
+                    border-radius:10px 10px 0 0; color:white; letter-spacing:1px; }
+        .lkr-head-hoy  { background:#4B57C9; }
+        .lkr-head-mes  { background:#3E4BCC; }
+        .lkr-head-u12m { background:#2E8555; }
+        .lkr-head-sldc { background:#2E8AD6; }
+        .lkr-head-stk  { background:#2E8AD6; }
+        .lkr-head-pnd  { background:#D04444; }
+        .lkr-head-ing  { background:#8D8717; }
+        .lkr-head-pf   { background:#C93B3B; }
+        .lkr-head-pv   { background:#C93B3B; }
+        .lkr-row-label { background:#3E4BCC; color:white; padding:10px 14px; font-weight:700;
+                         border-radius:10px 0 0 10px; display:flex; align-items:center; justify-content:center; }
+        .lkr-value       { font-size:1.55rem; font-weight:700; color:#2E4A9C; }
+        .lkr-value-q     { color:#8B00CC; }
+        .lkr-value-usd   { color:#2E8555; }
+        .lkr-value-small { font-size:1.2rem; }
+        .lkr-value-red   { color:#D04444; }
+        .lkr-value-gold  { color:#8D8717; }
         </style>
         """, unsafe_allow_html=True)
 
@@ -475,25 +431,21 @@ def dashboard():
         def _fmt_usd(v): return f"{v:,.0f}" if pd.notna(v) else "—"
         def _fmt_q(v):   return f"{v:,.0f}" if pd.notna(v) else "—"
 
-        # ── Layout principal: matriz izq + sidebar der
         col_main, col_side = st.columns([3, 1])
 
         with col_main:
-            # Header HOY / MES / U12M U$D
             h1, h2, h3, h4 = st.columns([1, 2, 2, 2])
             h1.markdown("&nbsp;", unsafe_allow_html=True)
-            h2.markdown('<div class="lkr-head lkr-head-hoy">HOY</div>', unsafe_allow_html=True)
-            h3.markdown('<div class="lkr-head lkr-head-mes">MES</div>', unsafe_allow_html=True)
+            h2.markdown('<div class="lkr-head lkr-head-hoy">HOY</div>',  unsafe_allow_html=True)
+            h3.markdown('<div class="lkr-head lkr-head-mes">MES</div>',  unsafe_allow_html=True)
             h4.markdown('<div class="lkr-head lkr-head-u12m">U12M U$D</div>', unsafe_allow_html=True)
 
-            # Fila $ (ARS para HOY/MES, USD para U12M)
             r1, r2, r3, r4 = st.columns([1, 2, 2, 2])
             r1.markdown('<div class="lkr-row-label">$</div>', unsafe_allow_html=True)
             r2.markdown(f'<div class="lkr-card" style="text-align:center"><div class="lkr-value">{_fmt_ars(v_hoy["Total"].sum())}</div></div>', unsafe_allow_html=True)
             r3.markdown(f'<div class="lkr-card" style="text-align:center"><div class="lkr-value">{_fmt_ars(v_mes["Total"].sum())}</div></div>', unsafe_allow_html=True)
             r4.markdown(f'<div class="lkr-card" style="text-align:center"><div class="lkr-value lkr-value-usd">{_fmt_usd(v_u12m["Total_USD"].sum())}</div></div>', unsafe_allow_html=True)
 
-            # Fila Q
             q1, q2, q3, q4 = st.columns([1, 2, 2, 2])
             q1.markdown('<div class="lkr-row-label" style="background:#6B2DCC">Q</div>', unsafe_allow_html=True)
             q2.markdown(f'<div class="lkr-card" style="text-align:center"><div class="lkr-value lkr-value-q">{_fmt_q(v_hoy["Cantidad"].sum())}</div></div>', unsafe_allow_html=True)
@@ -502,39 +454,36 @@ def dashboard():
 
             st.markdown("<br>", unsafe_allow_html=True)
 
-            # Filas por canal
-            for canal, color in [("RETAIL", "#3E4BCC"), ("HOGAR", "#3E4BCC"), ("ECOMM", "#3E4BCC")]:
-                ars_h, usd_h, _ = _canal_metrics(v_hoy, canal)
-                ars_m, usd_m, _ = _canal_metrics(v_mes, canal)
+            for canal, color in [("RETAIL","#3E4BCC"), ("HOGAR","#3E4BCC"), ("ECOMM","#3E4BCC")]:
+                ars_h, usd_h, _ = _canal_metrics(v_hoy,  canal)
+                ars_m, usd_m, _ = _canal_metrics(v_mes,  canal)
                 _, usd_u, _     = _canal_metrics(v_u12m, canal)
                 c1, c2, c3, c4 = st.columns([1, 2, 2, 2])
                 c1.markdown(f'<div class="lkr-row-label" style="background:{color}">{canal}</div>', unsafe_allow_html=True)
-                ars_h_class = "lkr-value-red" if ars_h < 0 else ""
-                c2.markdown(f'<div class="lkr-card" style="text-align:center"><div class="lkr-value lkr-value-small {ars_h_class}">{_fmt_ars(ars_h)}</div></div>', unsafe_allow_html=True)
+                ars_h_cls = "lkr-value-red" if ars_h < 0 else ""
+                c2.markdown(f'<div class="lkr-card" style="text-align:center"><div class="lkr-value lkr-value-small {ars_h_cls}">{_fmt_ars(ars_h)}</div></div>', unsafe_allow_html=True)
                 c3.markdown(f'<div class="lkr-card" style="text-align:center"><div class="lkr-value lkr-value-small">{_fmt_ars(ars_m)}</div></div>', unsafe_allow_html=True)
                 c4.markdown(f'<div class="lkr-card" style="text-align:center"><div class="lkr-value lkr-value-small lkr-value-usd">{_fmt_usd(usd_u)}</div></div>', unsafe_allow_html=True)
 
             st.markdown("<br>", unsafe_allow_html=True)
 
-            # Pend Facturar / Preventa (fila inferior)
             p1, p2, p3 = st.columns([1, 2, 2])
             pend_fact_usd = pendientes_pos["Import"].sum() / dolar_hoy if dolar_hoy else 0
-            preventa_usd = 0  # placeholder — requiere identificar preventa en pendientes
+            preventa_usd  = 0
             if "nCntEstimada" in pendientes_pos.columns:
-                preventa_usd = (pendientes_pos["nCntEstimada"] * pendientes_pos["Import"] / pendientes_pos["CANTID"].replace(0, 1)).sum() / dolar_hoy if dolar_hoy else 0
+                preventa_usd = (pendientes_pos["nCntEstimada"] * pendientes_pos["Import"] /
+                                pendientes_pos["CANTID"].replace(0, 1)).sum() / dolar_hoy if dolar_hoy else 0
             p2.markdown('<div class="lkr-head lkr-head-pf">PEND FACTURAR U$D</div>', unsafe_allow_html=True)
             p2.markdown(f'<div class="lkr-card" style="text-align:center"><div class="lkr-value lkr-value-usd">$ {pend_fact_usd/1000:.2f}K</div></div>', unsafe_allow_html=True)
             p3.markdown('<div class="lkr-head lkr-head-pv">PREVENTA U$D</div>', unsafe_allow_html=True)
             p3.markdown(f'<div class="lkr-card" style="text-align:center"><div class="lkr-value lkr-value-usd">$ {preventa_usd/1000:.2f}K</div></div>', unsafe_allow_html=True)
 
         with col_side:
-            # Saldos Comerciales
             st.markdown('<div class="lkr-head lkr-head-sldc">🟡 SALDOS COMERCIALES</div>', unsafe_allow_html=True)
             saldo = deuda["TOTCTA"].sum()
             st.markdown(f'<div class="lkr-card" style="text-align:center"><div class="lkr-value">$ {saldo/1e6:.2f}M</div></div>', unsafe_allow_html=True)
             st.markdown("<br>", unsafe_allow_html=True)
 
-            # STK / PND / ING mini-cards
             stk = stock["DISPONIBLE"].sum()
             pnd = pendientes_pos["CANTID"].sum()
             ing = stock["OC"].sum()
@@ -552,53 +501,40 @@ def dashboard():
             i2.markdown(f'<div class="lkr-card" style="text-align:center;padding:10px"><div class="lkr-value lkr-value-small lkr-value-gold">{_fmt_q(ing)}</div></div>', unsafe_allow_html=True)
 
             st.markdown("<br><br>", unsafe_allow_html=True)
-
-            # Fecha + TC del día
             st.markdown(f'<div class="lkr-card" style="text-align:center;font-size:0.85rem;color:#555">{datetime.now().strftime("%b %d, %Y, %I:%M:%S %p")}</div>', unsafe_allow_html=True)
             st.markdown(f'<div class="lkr-card" style="text-align:center;font-weight:700;color:#2E4A9C">{dolar_hoy:,.2f}</div>', unsafe_allow_html=True)
 
-        st.caption("💡 Clasificación RETAIL/HOGAR/ECOMM es heurística (Vendedor contiene 'GER' → RETAIL, Cliente contiene 'CLIENTE CONTADO/PARA' → ECOMM, resto → HOGAR).")
+        st.caption("💡 Clasificación RETAIL/HOGAR/ECOMM: Vendedor contiene 'GER' → RETAIL, Cliente contiene 'CLIENTE CONTADO/PARA' → ECOMM, resto → HOGAR.")
 
-    # ────────────────────────────── TAB 1: VENTAS (USD)
+    # ────────────────────────────── TAB 1: VENTAS
     with tab1:
-
-        # ── Filtros (Marca / Categoría / Vendedor / Período) ──────────────
         cf1, cf2, cf3, cf4 = st.columns([2, 2, 2, 2])
         with cf1:
             marcas_disp = sorted(ventas_pos["Marca"].dropna().unique().tolist())
-            marca_sel = st.multiselect("🏷️ Marca", marcas_disp,
-                                       placeholder="Todas las marcas", key="f_marca")
+            marca_sel = st.multiselect("🏷️ Marca", marcas_disp, placeholder="Todas las marcas", key="f_marca")
         with cf2:
             cats_disp = sorted(ventas_pos["SubCategoria"].dropna().unique().tolist())
-            cat_sel = st.multiselect("📂 Categoría", cats_disp,
-                                     placeholder="Todas las categorías", key="f_cat")
+            cat_sel = st.multiselect("📂 Categoría", cats_disp, placeholder="Todas las categorías", key="f_cat")
         with cf3:
             vend_disp = sorted(ventas_pos["Vendedor"].dropna().unique().tolist())
-            vend_sel = st.multiselect("👤 Vendedor", vend_disp,
-                                      placeholder="Todos", key="f_vend")
+            vend_sel = st.multiselect("👤 Vendedor", vend_disp, placeholder="Todos", key="f_vend")
         with cf4:
             u12m_start = (pd.Timestamp.today() - pd.DateOffset(months=12)).date()
             f_min = ventas_pos["Fecha"].min().date()
             f_max = ventas_pos["Fecha"].max().date()
             rango_v = st.date_input("📅 Período (default: U12M)",
                                     value=(max(u12m_start, f_min), f_max),
-                                    min_value=f_min, max_value=f_max,
-                                    key="f_fecha")
+                                    min_value=f_min, max_value=f_max, key="f_fecha")
 
-        # Aplicar filtros
         vf = ventas_pos.copy()
-        if marca_sel:
-            vf = vf[vf["Marca"].isin(marca_sel)]
-        if cat_sel:
-            vf = vf[vf["SubCategoria"].isin(cat_sel)]
-        if vend_sel:
-            vf = vf[vf["Vendedor"].isin(vend_sel)]
+        if marca_sel: vf = vf[vf["Marca"].isin(marca_sel)]
+        if cat_sel:   vf = vf[vf["SubCategoria"].isin(cat_sel)]
+        if vend_sel:  vf = vf[vf["Vendedor"].isin(vend_sel)]
         if isinstance(rango_v, (tuple, list)) and len(rango_v) == 2:
             vf = vf[(vf["Fecha"].dt.date >= rango_v[0]) & (vf["Fecha"].dt.date <= rango_v[1])]
 
         st.divider()
 
-        # Gráfico dual ARS / USD / TC
         if vf["Fecha"].notna().any():
             vm = vf.groupby(vf["Fecha"].dt.to_period("M")).agg(
                 Total=("Total","sum"), Total_USD=("Total_USD","sum"),
@@ -620,8 +556,7 @@ def dashboard():
                 margin=dict(t=50, b=60, l=40, r=80),
                 title=dict(text="Ventas mensuales: ARS vs USD vs Tipo de cambio",
                            font=dict(color="#160B7C", size=15)),
-                xaxis=dict(gridcolor="rgba(22,11,124,0.08)", linecolor="rgba(22,11,124,0.2)",
-                           tickfont=dict(color="#6B7AA5")),
+                xaxis=dict(gridcolor="rgba(22,11,124,0.08)", tickfont=dict(color="#6B7AA5")),
                 yaxis =dict(title=dict(text="ARS", font=dict(color="#0FBFEF", size=12)),
                             gridcolor="rgba(22,11,124,0.08)", tickfont=dict(color="#6B7AA5")),
                 yaxis2=dict(title=dict(text="USD", font=dict(color="#E8A800", size=12)),
@@ -645,7 +580,6 @@ def dashboard():
         sel_mod = st.plotly_chart(fig_um, use_container_width=True,
                                   on_select="rerun", key="sel_mod")
 
-        # Drill-down modelo
         mod_sel = get_sel(sel_mod)
         if mod_sel:
             st.divider()
@@ -674,7 +608,6 @@ def dashboard():
             st.dataframe(dm_fmt, use_container_width=True, hide_index=True)
             st.divider()
 
-        # Desglose por Marca y SubCategoría
         bm1, bm2 = st.columns(2)
         with bm1:
             marca_agg = (vf.groupby("Marca")["Total_USD"].sum()
@@ -732,10 +665,8 @@ def dashboard():
             sel_deu = st.plotly_chart(fig_dd, use_container_width=True,
                                       on_select="rerun", key="sel_deu")
 
-        # Drill-down cliente deuda
         cli_deu_sel = get_sel(sel_deu, "x")
         if cli_deu_sel:
-            # Buscar nombre completo (puede estar truncado)
             match = deuda[deuda["VTMCLH_NOMBRE"].str[:22] == cli_deu_sel]
             if match.empty:
                 match = deuda[deuda["VTMCLH_NOMBRE"].str.contains(cli_deu_sel, na=False)]
@@ -749,8 +680,7 @@ def dashboard():
                         "Período": ["0-30d","31-60d","61-90d","+90d"],
                         "Monto":   [row["SAL30"], row["SAL60"], row["SALMAY60"], row["SALMAY90"]],
                     })
-                    fig_ag2 = px.bar(ag_cli, x="Período", y="Monto",
-                                     color="Período",
+                    fig_ag2 = px.bar(ag_cli, x="Período", y="Monto", color="Período",
                                      color_discrete_sequence=["#4CAF50","#FFC107","#FF9800","#F44336"],
                                      title="Deuda por antigüedad")
                     fig_ag2.update_layout(**PLOTLY_THEME, showlegend=False)
@@ -759,21 +689,19 @@ def dashboard():
                     uso_pct = (row["TOTCTA"] / row["LIMCRED"] * 100) if row["LIMCRED"] > 0 else 0
                     fig_g = go.Figure(go.Indicator(
                         mode="gauge+number", value=uso_pct,
-                        title={"text": "Uso de límite de crédito (%)",
-                               "font": {"color": "#160B7C", "size": 14}},
-                        gauge={"axis":{"range":[0,100], "tickcolor":"#6B7AA5"},
-                               "bar":{"color":"#160B7C"},
-                               "bgcolor":"#F0F3FA",
-                               "borderwidth":2, "bordercolor":"#E2E6F0",
-                               "steps":[{"range":[0,60], "color":"#D4F5E9"},
-                                        {"range":[60,80], "color":"#FFE9C7"},
+                        title={"text":"Uso de límite de crédito (%)",
+                               "font":{"color":"#160B7C","size":14}},
+                        gauge={"axis":{"range":[0,100],"tickcolor":"#6B7AA5"},
+                               "bar":{"color":"#160B7C"},"bgcolor":"#F0F3FA",
+                               "borderwidth":2,"bordercolor":"#E2E6F0",
+                               "steps":[{"range":[0,60],"color":"#D4F5E9"},
+                                        {"range":[60,80],"color":"#FFE9C7"},
                                         {"range":[80,100],"color":"#FFD3DC"}],
                                "threshold":{"line":{"color":"#D04462","width":3},"value":80}},
-                        number={"suffix":"%","valueformat":".1f",
-                                "font":{"color":"#160B7C","size":34}}
+                        number={"suffix":"%","valueformat":".1f","font":{"color":"#160B7C","size":34}}
                     ))
                     fig_g.update_layout(paper_bgcolor="#FFFFFF",
-                                        font=dict(color="#1A1D3A", family="Inter, sans-serif"),
+                                        font=dict(color="#1A1D3A",family="Inter, sans-serif"),
                                         height=300, margin=dict(t=60,b=20,l=20,r=20))
                     st.plotly_chart(fig_g, use_container_width=True)
                 st.divider()
@@ -789,36 +717,30 @@ def dashboard():
     with tab3:
         stock_pos = stock[stock["DISPONIBLE"] > 0].copy()
 
-        # ── Filtros stock ──────────────────────────────────────────────────────
         sf1c, sf2c, sf3c = st.columns([2, 2, 2])
         with sf1c:
             dep_opts = sorted(stock_pos["CODIGO_DEPOSITO"].unique().tolist())
             dep_labels = {d: f"Depósito {d}" for d in dep_opts}
             if "NOMBRE_DEPOSITO" in stock_pos.columns:
                 for d in dep_opts:
-                    name = stock_pos[stock_pos["CODIGO_DEPOSITO"]==d]["NOMBRE_DEPOSITO"].iloc[0] \
-                           if not stock_pos[stock_pos["CODIGO_DEPOSITO"]==d].empty else ""
-                    if name and str(name).strip():
-                        dep_labels[d] = f"{d} — {str(name).strip()}"
-            dep_sel = st.multiselect("🏭 Depósito", dep_opts,
-                                     default=dep_opts,
-                                     format_func=lambda d: dep_labels.get(d, str(d)),
-                                     key="st_dep")
+                    sub = stock_pos[stock_pos["CODIGO_DEPOSITO"]==d]
+                    if not sub.empty:
+                        name = sub["NOMBRE_DEPOSITO"].iloc[0]
+                        if name and str(name).strip():
+                            dep_labels[d] = f"{d} — {str(name).strip()}"
+            dep_sel = st.multiselect("🏭 Depósito", dep_opts, default=dep_opts,
+                                     format_func=lambda d: dep_labels.get(d, str(d)), key="st_dep")
         with sf2c:
             s_marcas = sorted(stock_pos["Marca"].dropna().unique().tolist())
-            s_marca_sel = st.multiselect("🏷️ Marca", s_marcas,
-                                         placeholder="Todas las marcas", key="st_marca")
+            s_marca_sel = st.multiselect("🏷️ Marca", s_marcas, placeholder="Todas las marcas", key="st_marca")
         with sf3c:
             s_cats = sorted(stock_pos["SubCategoria"].dropna().unique().tolist())
-            s_cat_sel = st.multiselect("📂 Categoría", s_cats,
-                                       placeholder="Todas las categorías", key="st_cat")
+            s_cat_sel = st.multiselect("📂 Categoría", s_cats, placeholder="Todas las categorías", key="st_cat")
+
         sf = stock_pos.copy()
-        if dep_sel:
-            sf = sf[sf["CODIGO_DEPOSITO"].isin(dep_sel)]
-        if s_marca_sel:
-            sf = sf[sf["Marca"].isin(s_marca_sel)]
-        if s_cat_sel:
-            sf = sf[sf["SubCategoria"].isin(s_cat_sel)]
+        if dep_sel:     sf = sf[sf["CODIGO_DEPOSITO"].isin(dep_sel)]
+        if s_marca_sel: sf = sf[sf["Marca"].isin(s_marca_sel)]
+        if s_cat_sel:   sf = sf[sf["SubCategoria"].isin(s_cat_sel)]
         st.divider()
 
         c1, c2 = st.columns(2)
@@ -839,7 +761,6 @@ def dashboard():
             fig_cat.update_layout(**PLOTLY_THEME)
             st.plotly_chart(fig_cat, use_container_width=True)
 
-        # Drill-down producto stock
         prod_sel = get_sel(sel_st)
         if prod_sel:
             match_st = stock[stock["STMPDH_DESCRP"].str[:38] == prod_sel]
@@ -850,23 +771,21 @@ def dashboard():
                 fc1, fc2 = st.columns(2)
                 with fc1:
                     st_detail = pd.DataFrame({
-                        "Estado": ["Disponible","Nota de Venta","Orden de Compra","En Stock"],
-                        "Unidades": [row_st["DISPONIBLE"], row_st["NV"],
-                                     row_st["OC"], row_st["ST"]],
-                        "Color": ["#4CAF50","#FFC107","#42A5F5","#AB47BC"]
+                        "Estado":   ["Disponible","Nota de Venta","Orden de Compra","En Stock"],
+                        "Unidades": [row_st["DISPONIBLE"], row_st["NV"], row_st["OC"], row_st["ST"]],
+                        "Color":    ["#4CAF50","#FFC107","#42A5F5","#AB47BC"]
                     })
-                    fig_std = px.bar(st_detail, x="Estado", y="Unidades",
-                                     color="Estado",
+                    fig_std = px.bar(st_detail, x="Estado", y="Unidades", color="Estado",
                                      color_discrete_sequence=st_detail["Color"].tolist(),
                                      title="Breakdown de stock")
                     fig_std.update_layout(**PLOTLY_THEME, showlegend=False)
                     st.plotly_chart(fig_std, use_container_width=True)
                 with fc2:
                     st.markdown("#### Ficha del producto")
-                    st.metric("Código",       row_st["STMPDH_ARTCOD"])
-                    st.metric("Disponible",   f"{row_st['DISPONIBLE']:,.0f} u.")
-                    st.metric("Nota de Venta",f"{row_st['NV']:,.0f} u.")
-                    st.metric("Orden Compra", f"{row_st['OC']:,.0f} u.")
+                    st.metric("Código",        row_st["STMPDH_ARTCOD"])
+                    st.metric("Disponible",    f"{row_st['DISPONIBLE']:,.0f} u.")
+                    st.metric("Nota de Venta", f"{row_st['NV']:,.0f} u.")
+                    st.metric("Orden Compra",  f"{row_st['OC']:,.0f} u.")
                 st.divider()
 
         bajo = sf[sf["DISPONIBLE"] < 50].sort_values("DISPONIBLE")
@@ -900,7 +819,6 @@ def dashboard():
             sel_pa = st.plotly_chart(fig_pa, use_container_width=True,
                                      on_select="rerun", key="sel_pa")
 
-        # Drill-down cliente pendiente
         cli_pend_sel = get_sel(sel_pc)
         if cli_pend_sel:
             st.divider()
@@ -921,7 +839,6 @@ def dashboard():
             st.dataframe(pp, use_container_width=True, hide_index=True)
             st.divider()
 
-        # Drill-down artículo pendiente
         art_pend_sel = get_sel(sel_pa)
         if art_pend_sel:
             st.divider()
@@ -960,11 +877,12 @@ def dashboard():
             sel_prov = st.plotly_chart(fig_prov, use_container_width=True,
                                        on_select="rerun", key="sel_prov")
 
-        # Drill-down proveedor
         prov_sel = get_sel(sel_prov)
         if prov_sel:
-            prov_full = gastos_pos[gastos_pos["PVMPRH_NOMBRE"].str[:25] == prov_sel]["PVMPRH_NOMBRE"].iloc[0] \
-                        if not gastos_pos[gastos_pos["PVMPRH_NOMBRE"].str[:25] == prov_sel].empty else prov_sel
+            prov_full = prov_sel
+            match_prov = gastos_pos[gastos_pos["PVMPRH_NOMBRE"].str[:25] == prov_sel]
+            if not match_prov.empty:
+                prov_full = match_prov["PVMPRH_NOMBRE"].iloc[0]
             st.divider()
             st.subheader(f"💸 Evolución mensual — {prov_full}")
             df_pv = gastos_pos[gastos_pos["PVMPRH_NOMBRE"] == prov_full].copy()
