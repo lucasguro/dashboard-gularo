@@ -58,7 +58,8 @@ st.markdown("""
     [data-testid="stHeader"] {
         background: radial-gradient(ellipse at top, #0F0840 0%, #070320 70%) !important;
     }
-    .block-container { padding-top: 1rem; padding-bottom: 3rem; }
+    .block-container { padding-top: 4rem; padding-bottom: 3rem; }
+    header[data-testid="stHeader"] { background: transparent; }
 
     /* ── KPI cards: WHITE cards w/ huge deep-violet numbers ───────── */
     div[data-testid="metric-container"] {
@@ -126,11 +127,18 @@ st.markdown("""
     }
 
     /* ── Dataframes: white tables for legibility ──────────────────── */
-    .stDataFrame, .stDataFrame * {
+    .stDataFrame, [data-testid="stDataFrame"] {
+        background: #FFFFFF !important;
+    }
+    .stDataFrame [role="gridcell"],
+    [data-testid="stDataFrame"] [role="gridcell"],
+    .stDataFrame [role="rowheader"],
+    [data-testid="stDataFrame"] [role="rowheader"] {
         background: #FFFFFF !important;
         color: #1A1D3A !important;
     }
-    .stDataFrame [role="columnheader"] {
+    .stDataFrame [role="columnheader"],
+    [data-testid="stDataFrame"] [role="columnheader"] {
         background: #160B7C !important;
         color: #FFFFFF !important;
         font-weight: 700 !important;
@@ -218,10 +226,11 @@ PLOTLY_THEME = {
 @st.cache_data(ttl=300)          # refresca cada 5 min (el sheet no cambia tan seguido)
 def load_dolar():
     """Lee el sheet de dólar y devuelve una Serie indexada por fecha."""
-    df = pd.read_csv(DOLAR_URL).dropna(subset=["Fecha", "Close"])
+    df = pd.read_csv(DOLAR_URL).dropna(subset=["Fecha", "Round"])
+    # El Looker usa la columna "Round" (col E de b:e → VLOOKUP col 4)
     # Formato: $1.000,08  →  punto=miles, coma=decimal
     df["close_num"] = (
-        df["Close"]
+        df["Round"]
         .str.replace("$", "", regex=False)
         .str.replace(".", "", regex=False)
         .str.replace(",", ".", regex=False)
@@ -295,11 +304,38 @@ def load_all():
 
     ventas["Precio"]   = parse_ars(ventas["Precio"])
     ventas["Cantidad"] = pd.to_numeric(ventas["Cantidad"], errors="coerce").fillna(0)
-    ventas["Total"]    = ventas["Precio"] * ventas["Cantidad"]
 
-    # Deuda
+    # ── Lógica Q / Facturación replicando fórmula del Looker ────────────
+    # Q: si Modelo vacío → 0; si CRMVH_CODFO contiene CA0004/CB0004/CE0005/CEA007
+    #    → -|Cantidad| (nota de crédito); sino → Cantidad
+    # Facturación: si Modelo vacío y CRMVH_CODFO == "CA0004" → -|Precio|;
+    #              si Modelo vacío → 0; sino → Precio × Q
+    import numpy as np
+    _mod   = ventas["Modelo"].astype(str).str.strip()
+    _codfo = ventas["FCRMVH_CODFOR"].astype(str).str.strip().str.upper()
+    # Modelo vacío: string vacío, "nan", o caracter de caja vacía "☐"
+    modelo_empty = _mod.isin(["", "nan", "NaN", "None", "☐"])
+    is_credit    = _codfo.str.contains(r"CA0004|CB0004|CE0005|CEA007", na=False, regex=True)
+    is_CA0004    = _codfo.eq("CA0004")
+    is_DI_or_CI  = _codfo.isin(["DI", "CI"])
+
+    # Q: si Modelo vacío → 0; si CODFO contiene códigos de crédito → -|Cantidad|; sino → Cantidad
+    ventas["Q_looker"] = np.where(modelo_empty, 0,
+                          np.where(is_credit, -ventas["Cantidad"].abs(),
+                                              ventas["Cantidad"]))
+    # Facturación: DI/CI → 0; Modelo vacío + CA0004 → -|Precio|; Modelo vacío → 0; sino → Precio × Q
+    ventas["Facturacion"] = np.where(is_DI_or_CI, 0,
+                            np.where(modelo_empty & is_CA0004, -ventas["Precio"].abs(),
+                            np.where(modelo_empty, 0,
+                                     ventas["Precio"] * ventas["Q_looker"])))
+
+    # Alias para no romper código existente que usa Cantidad/Total
+    ventas["Cantidad"] = ventas["Q_looker"]
+    ventas["Total"]    = ventas["Facturacion"]
+
+    # Deuda — viene en formato argentino (punto miles, coma decimal)
     for c in ["SAL30","SAL60","SALMAY60","SALMAY90","TOTCTA","VALVEN","LIMCRED"]:
-        deuda[c] = pd.to_numeric(deuda[c], errors="coerce").fillna(0)
+        deuda[c] = parse_ars(deuda[c])
 
     # Stock
     for c in ["DISPONIBLE","NV","OC","ST"]:
@@ -338,10 +374,9 @@ def dashboard():
     stock  = stock.merge(_pk,  left_on="STMPDH_ARTCOD",  right_on="SKU Limpio", how="left"
                         ).drop(columns=["SKU Limpio"], errors="ignore")
 
-    # Excluir devoluciones (Cantidad<=0) y notas de crédito/débito (Tipo_Pago==60)
-    # → coincide con la columna "Q" del sheet Ventas Crudo que usa el Looker
-    _tp = ventas["Tipo_Pago"].astype(str).str.strip()
-    ventas_pos = ventas[(ventas["Cantidad"] > 0) & (_tp != "60")]
+    # ventas_pos ya viene con la lógica Q/Facturación del Looker aplicada en load_all()
+    # (Modelo vacío → 0; CA0004/CB0004/CE0005/CEA007 → -|Cant| como devolución)
+    ventas_pos = ventas.copy()
 
     # ── Clasificación de canal (RETAIL / HOGAR / ECOMM) ────────────────
     # Reglas según filtros del Looker (Edit Filter → RegExp Contains):
@@ -365,84 +400,7 @@ def dashboard():
     ventas_pos.loc[ecomm_mask,  "Canal"] = "ECOMM"
     pendientes_pos = pendientes[pendientes["CANTID"] > 0]
 
-    # ── Header
-    c1, c2, c3 = st.columns([4, 2, 2])
-    with c1:
-        st.title("📊 Dashboard Stromberg")
-    with c2:
-        try:
-            fe = pd.to_datetime(fecha_exp).strftime("%d/%m/%Y %H:%M")
-        except Exception:
-            fe = fecha_exp
-        st.metric("🕐 Última exportación Arrow", fe)
-    with c3:
-        st.metric("🔄 Actualización dashboard", datetime.now().strftime("%H:%M:%S"))
-
-    st.divider()
-
-    # ── FILTROS GLOBALES (arriba del todo, afectan KPIs y gráficos) ───────────
-    cf1, cf2, cf3, cf4 = st.columns([2, 2, 2, 2])
-    with cf1:
-        marcas_disp = sorted(ventas_pos["Marca"].dropna().unique().tolist())
-        marca_sel = st.multiselect("🏷️ Marca", marcas_disp,
-                                   placeholder="Todas las marcas", key="f_marca")
-    with cf2:
-        cats_disp = sorted(ventas_pos["SubCategoria"].dropna().unique().tolist())
-        cat_sel = st.multiselect("📂 Categoría", cats_disp,
-                                 placeholder="Todas las categorías", key="f_cat")
-    with cf3:
-        vend_disp = sorted(ventas_pos["Vendedor"].dropna().unique().tolist())
-        vend_sel = st.multiselect("👤 Vendedor", vend_disp,
-                                  placeholder="Todos", key="f_vend")
-    with cf4:
-        u12m_start = (pd.Timestamp.today() - pd.DateOffset(months=12)).date()
-        f_min = ventas_pos["Fecha"].min().date()
-        f_max = ventas_pos["Fecha"].max().date()
-        rango_v = st.date_input("📅 Período (default: U12M)",
-                                value=(max(u12m_start, f_min), f_max),
-                                min_value=f_min, max_value=f_max,
-                                key="f_fecha")
-
-    # Aplicar filtros de dropdown
-    vf = ventas_pos.copy()
-    if marca_sel:
-        vf = vf[vf["Marca"].isin(marca_sel)]
-    if cat_sel:
-        vf = vf[vf["SubCategoria"].isin(cat_sel)]
-    if vend_sel:
-        vf = vf[vf["Vendedor"].isin(vend_sel)]
-    if isinstance(rango_v, (tuple, list)) and len(rango_v) == 2:
-        vf = vf[(vf["Fecha"].dt.date >= rango_v[0]) & (vf["Fecha"].dt.date <= rango_v[1])]
-
-    # ── Leer selección activa del gráfico de modelos (persiste entre reruns)
-    def _read_chart_sel(key, field="y"):
-        try:
-            pts = st.session_state[key].selection.points
-            if pts:
-                v = pts[0].get(field) or pts[0].get("label") or pts[0].get("x")
-                return v if v else None
-        except Exception:
-            return None
-
-    active_model = _read_chart_sel("sel_mod")
-
-    # Aplicar selección de gráfico a los KPIs
-    vf_kpi = vf[vf["Modelo"] == active_model] if active_model else vf
-
-    # ── KPIs (filtrados por dropdown + clic en gráfico) ───────────────────────
     dolar_hoy = dolar_serie.iloc[-1]
-    k1, k2, k3, k4, k5, k6 = st.columns(6)
-    k1.metric("💵 Ventas USD",       f"U$D {vf_kpi['Total_USD'].sum():,.0f}")
-    k2.metric("📦 Unidades",         f"{vf_kpi['Cantidad'].sum():,.0f}")
-    k3.metric("🛍️ Transacciones",    f"{len(vf_kpi):,}")
-    k4.metric("📋 Deuda total",      f"${deuda['TOTCTA'].sum():,.0f}")
-    k5.metric("📦 Stock disponible", f"{stock['DISPONIBLE'].sum():,.0f} u.")
-    k6.metric("💱 Dólar hoy",        f"${dolar_hoy:,.2f}")
-
-    if active_model:
-        st.info(f"🔍 Modelo activo: **{active_model}** — clic en el mismo modelo o en área vacía del gráfico para limpiar")
-
-    st.divider()
 
     # ── helper
     def get_sel(ev, key="y"):
@@ -462,11 +420,15 @@ def dashboard():
         import datetime as _dt
         hoy = _dt.date.today()
         mes_ini = hoy.replace(day=1)
-        u12m_ini = (pd.Timestamp.today() - pd.DateOffset(months=12)).date()
+        # U12M como lo define Looker: últimos 12 meses COMPLETOS (excluye mes actual)
+        # Ej: si hoy es 20/04/2026 → desde 01/04/2025 hasta 31/03/2026
+        u12m_ini = (pd.Timestamp(mes_ini) - pd.DateOffset(months=12)).date()
+        u12m_fin = mes_ini - _dt.timedelta(days=1)
 
         v_hoy  = ventas_pos[ventas_pos["Fecha"].dt.date == hoy]
         v_mes  = ventas_pos[ventas_pos["Fecha"].dt.date >= mes_ini]
-        v_u12m = ventas_pos[ventas_pos["Fecha"].dt.date >= u12m_ini]
+        v_u12m = ventas_pos[(ventas_pos["Fecha"].dt.date >= u12m_ini) &
+                            (ventas_pos["Fecha"].dt.date <= u12m_fin)]
 
         def _canal_metrics(df, canal):
             sub = df[df["Canal"] == canal]
@@ -597,8 +559,83 @@ def dashboard():
 
         st.caption("💡 Clasificación RETAIL/HOGAR/ECOMM es heurística (Marca=Stromberg Life → HOGAR, Cliente con CONTADO/ML → ECOMM, resto → RETAIL). Ajustable en `_canal()`.")
 
+        # ── DIAGNÓSTICO vs Looker ────────────────────────────────────────
+        with st.expander("🔬 Diagnóstico de discrepancias vs Looker"):
+            # ventas SIN filtros (sólo merge con Product Key y dolar)
+            ventas_raw = ventas.copy()
+            mes_ini_d = hoy.replace(day=1)
+
+            st.markdown("**Sumas MES (mes actual) con distintos filtros:**")
+            rows = []
+            for label, df in [
+                ("Sin filtros (todo)",
+                 ventas_raw[ventas_raw["Fecha"].dt.date >= mes_ini_d]),
+                ("Cantidad > 0",
+                 ventas_raw[(ventas_raw["Fecha"].dt.date >= mes_ini_d) &
+                            (ventas_raw["Cantidad"] > 0)]),
+                ("Cantidad > 0 & Tipo_Pago ≠ 60 (actual)",
+                 ventas_pos[ventas_pos["Fecha"].dt.date >= mes_ini_d]),
+            ]:
+                rows.append({
+                    "Filtro": label,
+                    "Total ARS": df["Total"].sum(),
+                    "Cantidad": df["Cantidad"].sum(),
+                    "Rows": len(df),
+                })
+            st.table(pd.DataFrame(rows))
+
+            st.markdown("**Valores únicos de Tipo_Pago y su impacto en MES:**")
+            tp_mes = (ventas_raw[(ventas_raw["Fecha"].dt.date >= mes_ini_d) &
+                                 (ventas_raw["Cantidad"] > 0)]
+                      .groupby(ventas_raw["Tipo_Pago"].astype(str).str.strip())
+                      .agg(Total_ARS=("Total","sum"),
+                           Cantidad=("Cantidad","sum"),
+                           Rows=("Total","count"))
+                      .reset_index()
+                      .sort_values("Total_ARS", ascending=False))
+            st.table(tp_mes)
+
+            st.markdown(f"**Looker dice:** MES ARS = 251,902,124 — MES Q = 3,984")
+            st.markdown(f"**Nosotros:** MES ARS = {v_mes['Total'].sum():,.0f} — MES Q = {v_mes['Cantidad'].sum():,.0f}")
+
     # ────────────────────────────── TAB 1: VENTAS (USD)
     with tab1:
+
+        # ── Filtros (Marca / Categoría / Vendedor / Período) ──────────────
+        cf1, cf2, cf3, cf4 = st.columns([2, 2, 2, 2])
+        with cf1:
+            marcas_disp = sorted(ventas_pos["Marca"].dropna().unique().tolist())
+            marca_sel = st.multiselect("🏷️ Marca", marcas_disp,
+                                       placeholder="Todas las marcas", key="f_marca")
+        with cf2:
+            cats_disp = sorted(ventas_pos["SubCategoria"].dropna().unique().tolist())
+            cat_sel = st.multiselect("📂 Categoría", cats_disp,
+                                     placeholder="Todas las categorías", key="f_cat")
+        with cf3:
+            vend_disp = sorted(ventas_pos["Vendedor"].dropna().unique().tolist())
+            vend_sel = st.multiselect("👤 Vendedor", vend_disp,
+                                      placeholder="Todos", key="f_vend")
+        with cf4:
+            u12m_start = (pd.Timestamp.today() - pd.DateOffset(months=12)).date()
+            f_min = ventas_pos["Fecha"].min().date()
+            f_max = ventas_pos["Fecha"].max().date()
+            rango_v = st.date_input("📅 Período (default: U12M)",
+                                    value=(max(u12m_start, f_min), f_max),
+                                    min_value=f_min, max_value=f_max,
+                                    key="f_fecha")
+
+        # Aplicar filtros
+        vf = ventas_pos.copy()
+        if marca_sel:
+            vf = vf[vf["Marca"].isin(marca_sel)]
+        if cat_sel:
+            vf = vf[vf["SubCategoria"].isin(cat_sel)]
+        if vend_sel:
+            vf = vf[vf["Vendedor"].isin(vend_sel)]
+        if isinstance(rango_v, (tuple, list)) and len(rango_v) == 2:
+            vf = vf[(vf["Fecha"].dt.date >= rango_v[0]) & (vf["Fecha"].dt.date <= rango_v[1])]
+
+        st.divider()
 
         # Gráfico dual ARS / USD / TC
         if vf["Fecha"].notna().any():
