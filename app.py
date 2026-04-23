@@ -602,13 +602,15 @@ def dashboard():
                                 title=f"{mod_sel} — USD por mes",
                                 color="Total_USD", color_continuous_scale="YlOrBr")
                 fig_dd.update_traces(texttemplate="%{text:.0f} u.", textposition="outside")
-                fig_dd.update_layout(**PLOTLY_THEME, coloraxis_showscale=False, xaxis_tickangle=-40)
+                fig_dd.update_layout(**PLOTLY_THEME, coloraxis_showscale=False)
+                fig_dd.update_xaxes(tickangle=-40)
                 st.plotly_chart(fig_dd, use_container_width=True)
             with fc2:
                 fig_dd2 = px.bar(dm, x="Mes", y="Unidades",
                                  title=f"{mod_sel} — Unidades por mes",
                                  color="Unidades", color_continuous_scale="Blues")
-                fig_dd2.update_layout(**PLOTLY_THEME, coloraxis_showscale=False, xaxis_tickangle=-40)
+                fig_dd2.update_layout(**PLOTLY_THEME, coloraxis_showscale=False)
+                fig_dd2.update_xaxes(tickangle=-40)
                 st.plotly_chart(fig_dd2, use_container_width=True)
             dm_fmt = dm.copy()
             dm_fmt["Total_USD"] = dm_fmt["Total_USD"].map("U$D {:,.0f}".format)
@@ -669,7 +671,8 @@ def dashboard():
             fig_dd.add_trace(go.Bar(name="Límite crédito", x=top_d["nc"], y=top_d["LIMCRED"],
                                     marker_color="#0FBFEF"))
             fig_dd.update_layout(**PLOTLY_THEME, title="🖱️ Clic en cliente para ver antigüedad",
-                                 barmode="group", xaxis_tickangle=-40)
+                                 barmode="group")
+            fig_dd.update_xaxes(tickangle=-40)
             sel_deu = st.plotly_chart(fig_dd, use_container_width=True,
                                       on_select="rerun", key="sel_deu")
 
@@ -871,7 +874,8 @@ def dashboard():
             gm["W_FCHMOV"] = gm["W_FCHMOV"].astype(str)
             fig_gm = px.bar(gm, x="W_FCHMOV", y="SALDO", title="Gastos Mensuales",
                             color="SALDO", color_continuous_scale="Reds")
-            fig_gm.update_layout(**PLOTLY_THEME, coloraxis_showscale=False, xaxis_tickangle=-40)
+            fig_gm.update_layout(**PLOTLY_THEME, coloraxis_showscale=False)
+            fig_gm.update_xaxes(tickangle=-40)
             st.plotly_chart(fig_gm, use_container_width=True)
 
         with c2:
@@ -899,7 +903,8 @@ def dashboard():
             fig_pv = px.area(gp, x="Mes", y="SALDO",
                              title=f"{prov_full} — gasto mensual",
                              color_discrete_sequence=["#0FBFEF"])
-            fig_pv.update_layout(**PLOTLY_THEME, xaxis_tickangle=-40)
+            fig_pv.update_layout(**PLOTLY_THEME)
+            fig_pv.update_xaxes(tickangle=-40)
             st.plotly_chart(fig_pv, use_container_width=True)
             st.divider()
 
