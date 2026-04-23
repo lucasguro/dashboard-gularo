@@ -235,16 +235,33 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# ── Hex equivalents for Plotly (Plotly doesn't parse oklch) ───────────────────
+C_ACCENT      = "#5C6BC0"   # oklch(55% 0.17 265) — indigo primary
+C_ACCENT_INK  = "#3949AB"   # oklch(42% 0.17 265) — indigo deep
+C_ACCENT_MID  = "#4A5090"   # oklch(32% 0.09 265) — indigo mid
+C_ACCENT_LT   = "#7986CB"   # oklch(62% 0.12 265) — indigo light
+C_ACCENT_LT2  = "#9FA8DA"   # oklch(70% 0.10 265) — indigo lighter
+C_POS         = "#43A047"   # oklch(52% 0.14 150) — green
+C_NEG         = "#E53935"   # oklch(55% 0.18 25)  — red
+C_INK         = "#2D2D35"   # oklch(22% 0.01 260) — primary text
+C_INK_SUB     = "#5D5D6B"   # oklch(46% 0.01 260) — secondary
+C_INK_MUTED   = "#888896"   # oklch(62% 0.01 260) — tertiary
+C_HAIRLINE    = "#E8E8EE"   # oklch(92% 0.005 260)
+C_BG          = "#FAFAF8"   # oklch(97.5% 0.003 85)
+C_POS_SOFT    = "#E8F5E9"   # oklch(96% 0.04 150)
+C_WARN_SOFT   = "#FFF8EF"   # oklch(97% 0.05 85)
+C_NEG_SOFT    = "#FFEBEE"   # oklch(96% 0.04 25)
+
 PLOTLY_THEME = {
     "paper_bgcolor": "#FFFFFF",
-    "plot_bgcolor":  "oklch(97.5% 0.003 85)",
-    "font":  {"color": "oklch(22% 0.01 260)", "family": "Inter, sans-serif"},
-    "xaxis": {"gridcolor": "oklch(92% 0.005 260)", "linecolor": "oklch(92% 0.005 260)",
-              "tickfont": {"color": "oklch(62% 0.01 260)"}},
-    "yaxis": {"gridcolor": "oklch(92% 0.005 260)", "linecolor": "oklch(92% 0.005 260)",
-              "tickfont": {"color": "oklch(62% 0.01 260)"}},
+    "plot_bgcolor":  C_BG,
+    "font":  {"color": C_INK, "family": "Inter, sans-serif"},
+    "xaxis": {"gridcolor": C_HAIRLINE, "linecolor": C_HAIRLINE,
+              "tickfont": {"color": C_INK_MUTED}},
+    "yaxis": {"gridcolor": C_HAIRLINE, "linecolor": C_HAIRLINE,
+              "tickfont": {"color": C_INK_MUTED}},
     "margin": {"t": 40, "b": 30, "l": 40, "r": 20},
-    "title":  {"font": {"color": "oklch(42% 0.17 265)", "size": 13, "family": "Inter, sans-serif"}},
+    "title":  {"font": {"color": C_ACCENT_INK, "size": 13, "family": "Inter, sans-serif"}},
 }
 
 
@@ -782,7 +799,7 @@ def dashboard():
                 fig_bar = go.Figure()
                 fig_bar.add_trace(go.Bar(
                     name="Ventas USD", x=vm["Mes"], y=vm["Total_USD"],
-                    marker_color="oklch(55% 0.17 265)",
+                    marker_color=C_ACCENT,
                     hovertemplate="<b>%{x}</b><br>U$D %{y:,.0f}<extra></extra>"
                 ))
                 fig_bar.update_layout(
@@ -799,9 +816,7 @@ def dashboard():
                     top_marca, values="Total_USD", names="Marca",
                     title="Mix por Marca", hole=0.45,
                     color_discrete_sequence=[
-                        "oklch(55% 0.17 265)", "oklch(42% 0.17 265)",
-                        "oklch(32% 0.09 265)", "oklch(62% 0.12 265)",
-                        "oklch(70% 0.10 265)"
+                        C_ACCENT, C_ACCENT_INK, C_ACCENT_MID, C_ACCENT_LT, C_ACCENT_LT2
                     ]
                 )
                 fig_donut.update_layout(**PLOTLY_THEME)
@@ -898,7 +913,7 @@ def dashboard():
                                     marker_color="#FF5E7E", customdata=top_d["VTMCLH_NOMBRE"],
                                     hovertemplate="%{customdata}<br>$%{y:,.0f}<extra></extra>"))
             fig_dd.add_trace(go.Bar(name="Límite crédito", x=top_d["nc"], y=top_d["LIMCRED"],
-                                    marker_color="oklch(55% 0.17 265)"))
+                                    marker_color=C_ACCENT))
             fig_dd.update_layout(**PLOTLY_THEME, title="🖱️ Clic en cliente para ver antigüedad",
                                  barmode="group")
             fig_dd.update_xaxes(tickangle=-40)
@@ -930,18 +945,18 @@ def dashboard():
                     fig_g = go.Figure(go.Indicator(
                         mode="gauge+number", value=uso_pct,
                         title={"text":"Uso de límite de crédito (%)",
-                               "font":{"color":"oklch(42% 0.17 265)","size":14}},
-                        gauge={"axis":{"range":[0,100],"tickcolor":"oklch(62% 0.01 260)"},
-                               "bar":{"color":"oklch(55% 0.17 265)"},"bgcolor":"#F8F8F8",
-                               "borderwidth":2,"bordercolor":"oklch(92% 0.005 260)",
-                               "steps":[{"range":[0,60],"color":"oklch(96% 0.04 150)"},
-                                        {"range":[60,80],"color":"oklch(97% 0.05 85)"},
-                                        {"range":[80,100],"color":"oklch(96% 0.04 25)"}],
-                               "threshold":{"line":{"color":"oklch(55% 0.18 25)","width":3},"value":80}},
-                        number={"suffix":"%","valueformat":".1f","font":{"color":"oklch(22% 0.01 260)","size":34}}
+                               "font":{"color":C_ACCENT_INK,"size":14}},
+                        gauge={"axis":{"range":[0,100],"tickcolor":C_INK_MUTED},
+                               "bar":{"color":C_ACCENT},"bgcolor":"#F8F8F8",
+                               "borderwidth":2,"bordercolor":C_HAIRLINE,
+                               "steps":[{"range":[0,60],"color":C_POS_SOFT},
+                                        {"range":[60,80],"color":C_WARN_SOFT},
+                                        {"range":[80,100],"color":C_NEG_SOFT}],
+                               "threshold":{"line":{"color":C_NEG,"width":3},"value":80}},
+                        number={"suffix":"%","valueformat":".1f","font":{"color":C_INK,"size":34}}
                     ))
                     fig_g.update_layout(paper_bgcolor="#FFFFFF",
-                                        font=dict(color="oklch(22% 0.01 260)",family="Inter, sans-serif"),
+                                        font=dict(color=C_INK,family="Inter, sans-serif"),
                                         height=300, margin=dict(t=60,b=20,l=20,r=20))
                     st.plotly_chart(fig_g, use_container_width=True)
                 st.divider()
@@ -1131,7 +1146,7 @@ def dashboard():
             gp = df_pv.groupby("Mes")["SALDO"].sum().reset_index()
             fig_pv = px.area(gp, x="Mes", y="SALDO",
                              title=f"{prov_full} — gasto mensual",
-                             color_discrete_sequence=["oklch(55% 0.17 265)"])
+                             color_discrete_sequence=[C_ACCENT])
             fig_pv.update_layout(**PLOTLY_THEME)
             fig_pv.update_xaxes(tickangle=-40)
             st.plotly_chart(fig_pv, use_container_width=True)
