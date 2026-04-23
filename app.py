@@ -259,9 +259,17 @@ def cruzar_con_dolar(ventas: pd.DataFrame, dolar_serie: pd.Series) -> pd.DataFra
 
 @st.cache_data(ttl=3600)
 def load_product_key():
-    df = _ws_to_df(st.secrets["PRODUCT_KEY_SHEET_ID"], GID_PRODUCT_KEY)
-    # La primera fila son los headers reales (la que gspread ya leyó como header)
-    df.columns = df.columns.str.strip()
+    # El Product Key tiene 2 filas de header: fila 0 = fila extra, fila 1 = headers reales
+    # (equivalente al header=1 del pd.read_csv anterior)
+    gc = _gspread_client()
+    sh = gc.open_by_key(st.secrets["PRODUCT_KEY_SHEET_ID"])
+    ws = next((w for w in sh.worksheets() if w.id == GID_PRODUCT_KEY), None)
+    if ws is None:
+        return pd.DataFrame()
+    rows = ws.get_all_values()
+    if len(rows) < 2:
+        return pd.DataFrame()
+    df = pd.DataFrame(rows[2:], columns=[c.strip() for c in rows[1]])
     keep = ["SKU Limpio", "SubCategoria", "Marca", "MODEL"]
     df = df[[c for c in keep if c in df.columns]].copy()
     df["SKU Limpio"]   = df["SKU Limpio"].astype(str).str.strip()
