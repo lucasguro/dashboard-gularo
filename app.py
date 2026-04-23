@@ -70,160 +70,181 @@ st.set_page_config(
 
 st.markdown("""
 <style>
-    /* ── Claude Design × Gularo ────────────────────────────────────── */
+    /* ── Claude Design × Gularo — Light Fintech Theme ──────────────── */
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+    :root {
+      --bg: oklch(99% 0.003 85);
+      --surface: #ffffff;
+      --subtle: oklch(97.5% 0.003 85);
+      --hairline: oklch(92% 0.005 260);
+      --hairline-soft: oklch(94.5% 0.004 260);
+      --ink: oklch(22% 0.01 260);
+      --ink-sub: oklch(46% 0.01 260);
+      --ink-muted: oklch(62% 0.01 260);
+      --accent: oklch(55% 0.17 265);
+      --accent-soft: oklch(96% 0.03 265);
+      --accent-ink: oklch(42% 0.17 265);
+      --accent-mid: oklch(32% 0.09 265);
+      --pos: oklch(52% 0.14 150);
+      --pos-soft: oklch(96% 0.04 150);
+      --neg: oklch(55% 0.18 25);
+      --neg-soft: oklch(96% 0.04 25);
+      --sans: 'Inter', -apple-system, sans-serif;
+      --mono: 'JetBrains Mono', ui-monospace, monospace;
+    }
 
     html, body, [data-testid="stAppViewContainer"] * {
-        font-family: 'Inter', -apple-system, sans-serif !important;
+        font-family: var(--sans) !important;
     }
 
     [data-testid="stAppViewContainer"],
     [data-testid="stHeader"] {
-        background: radial-gradient(ellipse at top, #0F0840 0%, #070320 70%) !important;
+        background: var(--bg) !important;
     }
     .block-container { padding-top: 4rem; padding-bottom: 3rem; }
     header[data-testid="stHeader"] { background: transparent; }
 
     /* ── KPI cards ─────────────────────────────────────────────────── */
     div[data-testid="metric-container"] {
-        background: #FFFFFF;
-        border-radius: 14px;
+        background: var(--surface);
+        border-radius: 12px;
         padding: 18px 22px;
-        border: none;
-        box-shadow:
-            0 10px 40px -10px rgba(0,0,0,0.5),
-            0 2px 6px rgba(15,191,239,0.15);
+        border: 1px solid var(--hairline);
+        box-shadow: 0 1px 4px rgba(0,0,0,0.06);
         transition: transform .15s ease, box-shadow .2s ease;
     }
     div[data-testid="metric-container"]:hover {
-        transform: translateY(-2px);
-        box-shadow:
-            0 14px 50px -10px rgba(0,0,0,0.55),
-            0 2px 12px rgba(15,191,239,0.35);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.09);
     }
     div[data-testid="metric-container"] label {
-        color: #6B7AA5 !important;
+        color: var(--ink-muted) !important;
         font-size: 0.72rem !important;
         font-weight: 600 !important;
         text-transform: uppercase;
         letter-spacing: 1.2px;
     }
     div[data-testid="metric-container"] [data-testid="stMetricValue"] {
-        color: #160B7C !important;
+        color: var(--ink) !important;
         font-size: 2rem !important;
-        font-weight: 800 !important;
+        font-weight: 700 !important;
         line-height: 1.1 !important;
         letter-spacing: -0.02em;
     }
     div[data-testid="metric-container"] [data-testid="stMetricDelta"] {
-        color: #0FBFEF !important;
+        color: var(--pos) !important;
         font-weight: 600;
     }
 
-    /* ── Tabs ──────────────────────────────────────────────────────── */
+    /* ── Tabs — subtle pill style, indigo active ──────────────────── */
     .stTabs [data-baseweb="tab-list"] {
-        gap: 6px;
-        background: rgba(255,255,255,0.04);
+        gap: 4px;
+        background: var(--subtle);
         padding: 4px;
         border-radius: 12px;
-        border: 1px solid rgba(15,191,239,0.12);
+        border: 1px solid var(--hairline);
     }
     .stTabs [data-baseweb="tab"] {
         background: transparent;
         border-radius: 9px;
         padding: 10px 22px;
-        color: #9BA8D4;
+        color: var(--ink-sub);
         border: none;
         font-weight: 600;
         font-size: 0.88rem;
         transition: all .15s ease;
     }
     .stTabs [data-baseweb="tab"]:hover {
-        color: #F5F7FF;
-        background: rgba(255,255,255,0.05);
+        color: var(--ink);
+        background: var(--surface);
     }
     .stTabs [aria-selected="true"] {
-        background: linear-gradient(135deg, #0FBFEF 0%, #06A6D8 100%) !important;
-        color: #070320 !important;
+        background: var(--accent) !important;
+        color: #fff !important;
         font-weight: 700 !important;
-        box-shadow: 0 4px 16px rgba(15,191,239,0.4);
+        box-shadow: 0 2px 8px oklch(55% 0.17 265 / 0.3);
     }
 
     /* ── Dataframes ────────────────────────────────────────────────── */
     .stDataFrame, [data-testid="stDataFrame"] {
-        background: #FFFFFF !important;
+        background: var(--surface) !important;
+        border: 1px solid var(--hairline);
+        border-radius: 10px;
     }
     .stDataFrame [role="gridcell"],
     [data-testid="stDataFrame"] [role="gridcell"],
     .stDataFrame [role="rowheader"],
     [data-testid="stDataFrame"] [role="rowheader"] {
-        background: #FFFFFF !important;
-        color: #1A1D3A !important;
+        background: var(--surface) !important;
+        color: var(--ink) !important;
     }
     .stDataFrame [role="columnheader"],
     [data-testid="stDataFrame"] [role="columnheader"] {
-        background: #160B7C !important;
-        color: #FFFFFF !important;
-        font-weight: 700 !important;
+        background: var(--subtle) !important;
+        color: var(--ink-sub) !important;
+        font-weight: 600 !important;
     }
 
     /* ── Typography ────────────────────────────────────────────────── */
-    h1 { color: #0FBFEF !important; font-weight: 800 !important; letter-spacing: -0.02em !important; }
-    h2 { color: #F5F7FF !important; font-weight: 700 !important; letter-spacing: -0.01em !important; }
-    h3 { color: #E0E8FF !important; font-weight: 600 !important; }
-    p, span, div, label { color: #E0E8FF; }
+    h1 { color: var(--accent) !important; font-weight: 800 !important; letter-spacing: -0.02em !important; }
+    h2 { color: var(--ink) !important; font-weight: 700 !important; letter-spacing: -0.01em !important; }
+    h3 { color: var(--ink-sub) !important; font-weight: 600 !important; }
+    p, span, div, label { color: var(--ink); }
 
     /* ── Form controls ─────────────────────────────────────────────── */
     .stMultiSelect [data-baseweb="select"] > div,
     .stDateInput   [data-baseweb="input"]  > div {
-        background: rgba(255,255,255,0.06) !important;
-        border: 1px solid rgba(15,191,239,0.2) !important;
+        background: var(--surface) !important;
+        border: 1px solid var(--hairline) !important;
         border-radius: 9px !important;
+        color: var(--ink) !important;
     }
     .stMultiSelect [data-baseweb="select"] > div:hover,
     .stDateInput   [data-baseweb="input"]  > div:hover {
-        border-color: rgba(15,191,239,0.5) !important;
+        border-color: var(--accent) !important;
     }
 
     /* ── Misc ──────────────────────────────────────────────────────── */
     hr {
         border: none !important; height: 1px !important;
-        background: linear-gradient(90deg, transparent 0%, rgba(15,191,239,0.3) 50%, transparent 100%) !important;
+        background: var(--hairline) !important;
         margin: 1.2rem 0 !important;
     }
     [data-testid="stSidebar"] {
-        background: #0A0530 !important;
-        border-right: 1px solid rgba(15,191,239,0.15);
+        background: var(--surface) !important;
+        border-right: 1px solid var(--hairline);
     }
     .stAlert {
-        background: rgba(15,191,239,0.08) !important;
-        border: 1px solid rgba(15,191,239,0.3) !important;
+        background: var(--accent-soft) !important;
+        border: 1px solid var(--hairline) !important;
         border-radius: 10px !important;
     }
-    .stAlert * { color: #E0E8FF !important; }
+    .stAlert * { color: var(--ink) !important; }
     .stButton > button {
-        background: #0FBFEF !important; color: #070320 !important;
+        background: var(--accent) !important; color: #fff !important;
         border: none !important; border-radius: 9px !important;
         font-weight: 700 !important; padding: 8px 20px !important;
         transition: all .15s ease;
     }
     .stButton > button:hover {
         transform: translateY(-1px);
-        box-shadow: 0 6px 20px rgba(15,191,239,0.4);
+        box-shadow: 0 4px 14px oklch(55% 0.17 265 / 0.35);
     }
 </style>
 """, unsafe_allow_html=True)
 
 PLOTLY_THEME = {
     "paper_bgcolor": "#FFFFFF",
-    "plot_bgcolor":  "#FAFBFF",
-    "font":  {"color": "#1A1D3A", "family": "Inter, sans-serif"},
-    "xaxis": {"gridcolor": "rgba(22,11,124,0.08)", "linecolor": "rgba(22,11,124,0.2)",
-              "tickfont": {"color": "#6B7AA5"}},
-    "yaxis": {"gridcolor": "rgba(22,11,124,0.08)", "linecolor": "rgba(22,11,124,0.2)",
-              "tickfont": {"color": "#6B7AA5"}},
-    "margin": {"t": 50, "b": 40, "l": 40, "r": 20},
-    "title":  {"font": {"color": "#160B7C", "size": 15, "family": "Inter, sans-serif"}},
+    "plot_bgcolor":  "oklch(97.5% 0.003 85)",
+    "font":  {"color": "oklch(22% 0.01 260)", "family": "Inter, sans-serif"},
+    "xaxis": {"gridcolor": "oklch(92% 0.005 260)", "linecolor": "oklch(92% 0.005 260)",
+              "tickfont": {"color": "oklch(62% 0.01 260)"}},
+    "yaxis": {"gridcolor": "oklch(92% 0.005 260)", "linecolor": "oklch(92% 0.005 260)",
+              "tickfont": {"color": "oklch(62% 0.01 260)"}},
+    "margin": {"t": 40, "b": 30, "l": 40, "r": 20},
+    "title":  {"font": {"color": "oklch(42% 0.17 265)", "size": 13, "family": "Inter, sans-serif"}},
 }
 
 
@@ -349,6 +370,90 @@ def load_all():
     return ventas, deuda, stock, gastos, pendientes, fecha_exp
 
 
+# ── VISUAL HELPERS ─────────────────────────────────────────────────────────────
+
+def sparkline_svg(values, width=100, height=28, color="oklch(55% 0.17 265)"):
+    if not values or len(values) < 2:
+        return f'<svg width="{width}" height="{height}"></svg>'
+    mn, mx = min(values), max(values)
+    rng = mx - mn if mx != mn else 1
+    pts = []
+    for i, v in enumerate(values):
+        x = i / (len(values)-1) * width
+        y = height - ((v - mn) / rng) * (height - 4) - 2
+        pts.append(f"{x:.1f},{y:.1f}")
+    path = " ".join(pts)
+    return (f'<svg width="{width}" height="{height}" viewBox="0 0 {width} {height}" '
+            f'style="display:block">'
+            f'<polyline points="{path}" fill="none" stroke="{color}" '
+            f'stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/></svg>')
+
+
+def delta_html(v):
+    if v is None or (isinstance(v, float) and (v != v)):
+        return ""
+    color = "oklch(52% 0.14 150)" if v >= 0 else "oklch(55% 0.18 25)"
+    arrow = "↑" if v >= 0 else "↓"
+    sign  = "+" if v >= 0 else ""
+    return (f'<span style="color:{color};font-size:11px;font-weight:600;'
+            f'font-family:var(--mono)">{arrow} {sign}{v:.1f}%</span>')
+
+
+def num_html(v, size=22, color="oklch(22% 0.01 260)", weight=600):
+    if isinstance(v, str):
+        formatted = v
+    else:
+        neg = v < 0
+        formatted = f"{abs(v):,.0f}".replace(",", "·TEMP·").replace(".", ",").replace("·TEMP·", ".")
+        if neg:
+            formatted = f"−{formatted}"
+        color = "oklch(55% 0.18 25)" if neg and color == "oklch(22% 0.01 260)" else color
+    return (f'<span style="font-family:var(--mono);font-size:{size}px;'
+            f'font-weight:{weight};color:{color};font-variant-numeric:tabular-nums">'
+            f'{formatted}</span>')
+
+
+def rank_table_html(title, rows, value_col, label_col, accent, accent_soft, numbered=True, prefix="U$D", compact=False):
+    """Renders a heatmap-shaded ranking table as HTML."""
+    if rows.empty:
+        return f'<div style="padding:12px;color:var(--ink-muted);font-size:12px">Sin datos</div>'
+    max_val = rows[value_col].max()
+    pad = "7px 14px" if compact else "9px 14px"
+    rows_html = ""
+    for i, (_, row) in enumerate(rows.iterrows()):
+        pct = float(row[value_col]) / max_val if max_val > 0 else 0
+        intensity = int(pct * 35)
+        text_color = "#fff" if pct > 0.55 else accent
+        val = row[value_col]
+        if val >= 1e6:
+            val_str = f"{val/1e6:.1f}M".replace(".", ",")
+        elif val >= 1e3:
+            val_str = f"{val/1e3:.0f}K"
+        else:
+            val_str = f"{int(val):,}".replace(",", ".")
+        num_cell = (f'<span style="text-align:right;padding:4px 10px;border-radius:5px;'
+                    f'background:color-mix(in oklch,{accent} {intensity}%,#fff);'
+                    f'color:{text_color};font-family:var(--mono);font-weight:600;font-size:12px">'
+                    f'{val_str}</span>')
+        idx_cell = (f'<span style="color:var(--ink-muted);font-family:var(--mono);font-size:11px;min-width:20px">'
+                    f'{i+1}.</span> ') if numbered else ""
+        label = str(row[label_col])[:28]
+        rows_html += (f'<div style="display:flex;align-items:center;justify-content:space-between;'
+                      f'padding:{pad};border-bottom:1px solid var(--hairline-soft);gap:8px">'
+                      f'<div style="display:flex;align-items:center;gap:4px;overflow:hidden;flex:1">'
+                      f'{idx_cell}'
+                      f'<span style="font-size:12.5px;color:var(--ink);font-weight:500;'
+                      f'overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{label}</span></div>'
+                      f'{num_cell}</div>')
+    return (f'<div style="background:#fff;border:1px solid var(--hairline);border-radius:12px;'
+            f'display:flex;flex-direction:column;overflow:hidden;height:100%">'
+            f'<div style="padding:10px 14px;border-bottom:1px solid var(--hairline-soft);'
+            f'font-size:11px;font-weight:600;color:{accent};letter-spacing:-0.1px">'
+            f'{title} &nbsp;<span style="font-size:10px;color:var(--ink-muted);font-weight:400">'
+            f'{prefix}</span></div>'
+            f'{rows_html}</div>')
+
+
 # ── DASHBOARD ─────────────────────────────────────────────────────────────────
 @st.fragment(run_every=120)
 def dashboard():
@@ -381,6 +486,13 @@ def dashboard():
     pendientes_pos = pendientes[pendientes["CANTID"] > 0]
     dolar_hoy = dolar_serie.iloc[-1]
 
+    # Pendientes de facturar y preventa (needed in tab0 sidebar)
+    pend_fact_usd = pendientes_pos["Import"].sum() / dolar_hoy if dolar_hoy else 0
+    preventa_usd  = 0
+    if "nCntEstimada" in pendientes_pos.columns:
+        preventa_usd = (pendientes_pos["nCntEstimada"] * pendientes_pos["Import"] /
+                        pendientes_pos["CANTID"].replace(0, 1)).sum() / dolar_hoy if dolar_hoy else 0
+
     def get_sel(ev, key="y"):
         try:
             p = ev.selection.points[0]
@@ -395,142 +507,219 @@ def dashboard():
     # ────────────────────────────── TAB 0: RESUMEN
     with tab0:
         import datetime as _dt
-        hoy     = _dt.date.today()
+        hoy = _dt.date.today()
         mes_ini = hoy.replace(day=1)
+        mes_ant_fin = mes_ini - _dt.timedelta(days=1)
+        mes_ant_ini = mes_ant_fin.replace(day=1)
         u12m_ini = (pd.Timestamp(mes_ini) - pd.DateOffset(months=12)).date()
         u12m_fin = mes_ini - _dt.timedelta(days=1)
 
-        v_hoy  = ventas_pos[ventas_pos["Fecha"].dt.date == hoy]
-        v_mes  = ventas_pos[ventas_pos["Fecha"].dt.date >= mes_ini]
-        v_u12m = ventas_pos[(ventas_pos["Fecha"].dt.date >= u12m_ini) &
-                            (ventas_pos["Fecha"].dt.date <= u12m_fin)]
+        v_hoy    = ventas_pos[ventas_pos["Fecha"].dt.date == hoy]
+        v_mes    = ventas_pos[ventas_pos["Fecha"].dt.date >= mes_ini]
+        v_mes_ant = ventas_pos[(ventas_pos["Fecha"].dt.date >= mes_ant_ini) &
+                               (ventas_pos["Fecha"].dt.date <= mes_ant_fin)]
+        v_u12m   = ventas_pos[(ventas_pos["Fecha"].dt.date >= u12m_ini) &
+                               (ventas_pos["Fecha"].dt.date <= u12m_fin)]
 
-        def _canal_metrics(df, canal):
-            sub = df[df["Canal"] == canal]
-            return sub["Total"].sum(), sub["Total_USD"].sum(), sub["Cantidad"].sum()
+        def safe_delta(new, old):
+            if old and old != 0:
+                return (new / old - 1) * 100
+            return None
 
+        # Monthly sparkline series (last 12 complete months)
+        monthly = (ventas_pos[ventas_pos["Fecha"].dt.date <= u12m_fin]
+                   .groupby(ventas_pos["Fecha"].dt.to_period("M"))
+                   .agg(Total=("Total","sum"), Q=("Cantidad","sum"))
+                   .tail(12))
+        def canal_monthly(canal):
+            sub = ventas_pos[(ventas_pos["Canal"] == canal) &
+                             (ventas_pos["Fecha"].dt.date <= u12m_fin)]
+            return (sub.groupby(sub["Fecha"].dt.to_period("M"))["Total"].sum().tail(12).tolist())
+
+        sparks = {
+            "dollar": monthly["Total"].tolist(),
+            "qty":    monthly["Q"].tolist(),
+            "retail": canal_monthly("RETAIL"),
+            "hogar":  canal_monthly("HOGAR"),
+            "ecomm":  canal_monthly("ECOMM"),
+        }
+
+        # Values
+        hoy_ars  = v_hoy["Total"].sum()
+        mes_ars  = v_mes["Total"].sum()
+        u12m_usd = v_u12m["Total_USD"].sum()
+        hoy_q    = v_hoy["Cantidad"].sum()
+        mes_q    = v_mes["Cantidad"].sum()
+        u12m_q   = v_u12m["Cantidad"].sum()
+
+        def canal_vals(canal):
+            return {
+                "hoy":  ventas_pos[(ventas_pos["Canal"]==canal) & (ventas_pos["Fecha"].dt.date==hoy)]["Total"].sum(),
+                "mes":  ventas_pos[(ventas_pos["Canal"]==canal) & (ventas_pos["Fecha"].dt.date>=mes_ini)]["Total"].sum(),
+                "u12m": ventas_pos[(ventas_pos["Canal"]==canal) & (ventas_pos["Fecha"].dt.date>=u12m_ini) &
+                                   (ventas_pos["Fecha"].dt.date<=u12m_fin)]["Total_USD"].sum(),
+            }
+        rv = canal_vals("RETAIL")
+        hv = canal_vals("HOGAR")
+        ev = canal_vals("ECOMM")
+
+        delta_hoy_d = safe_delta(hoy_ars, v_mes_ant[v_mes_ant["Fecha"].dt.date == mes_ant_fin]["Total"].sum())
+        delta_mes_d = safe_delta(mes_ars, v_mes_ant["Total"].sum())
+        delta_u12m_d = None  # no prior U12M computed
+
+        # Build matrix HTML
+        col_head_base = "font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:0.8px;padding:0 4px 10px;text-align:right;font-family:var(--sans)"
+        cell_style = "padding:14px 16px;border-top:1px solid var(--hairline-soft);text-align:right;vertical-align:middle"
+        row_label_style = ("padding:14px 12px 14px 0;font-size:11px;font-weight:600;"
+                           "text-transform:uppercase;letter-spacing:0.6px;color:var(--ink-sub);"
+                           "white-space:nowrap;font-family:var(--sans);vertical-align:middle")
+
+        def matrix_row(label_html, hoy_v, mes_v, u12m_v, spark_vals,
+                       hoy_size=22, canal_size=19, hoy_delta=None, mes_delta=None, u12m_delta=None):
+            spark = sparkline_svg(spark_vals)
+            hoy_col  = "oklch(22% 0.01 260)"
+            mes_col  = "oklch(32% 0.09 265)"
+            u12m_col = "oklch(42% 0.17 265)"
+            sz = hoy_size
+            hoy_cell = f'<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">{num_html(hoy_v,sz,hoy_col)}{delta_html(hoy_delta) if hoy_delta is not None else ""}</div>'
+            mes_cell = f'<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">{num_html(mes_v,sz,mes_col)}{delta_html(mes_delta) if mes_delta is not None else ""}</div>'
+            u12m_cell = f'<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">{num_html(u12m_v,sz,u12m_col)}{delta_html(u12m_delta) if u12m_delta is not None else ""}</div>'
+            return (f'<tr>'
+                    f'<td style="{row_label_style}">{label_html}</td>'
+                    f'<td style="{cell_style}">{hoy_cell}</td>'
+                    f'<td style="{cell_style}">{mes_cell}</td>'
+                    f'<td style="{cell_style}">{u12m_cell}</td>'
+                    f'<td style="{cell_style};padding:14px 0 14px 16px">{spark}</td>'
+                    f'</tr>')
+
+        matrix_html = f"""
+        <div class="mx-wrap">
+          <div class="mx-card">
+            <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:8px">
+              <div>
+                <div style="font-size:15px;font-weight:600;color:var(--ink);letter-spacing:-0.2px">Ventas por período</div>
+                <div style="font-size:12px;color:var(--ink-muted);margin-top:2px">Monto y cantidades · todas las marcas</div>
+              </div>
+            </div>
+            <table class="mx-table">
+              <thead>
+                <tr>
+                  <th style="width:110px"></th>
+                  <th style="{col_head_base};color:var(--ink)">HOY</th>
+                  <th style="{col_head_base};color:var(--accent-mid)">MES</th>
+                  <th style="{col_head_base};color:var(--accent-ink)">U12M · U$D</th>
+                  <th style="{col_head_base};width:110px;text-align:left;padding-left:16px">TENDENCIA</th>
+                </tr>
+              </thead>
+              <tbody>
+                {matrix_row(
+                  '<span style="font-family:var(--mono);color:var(--accent);font-size:13px;font-weight:600">$</span> &nbsp;MONTO',
+                  hoy_ars, mes_ars, u12m_usd, sparks["dollar"],
+                  hoy_delta=delta_hoy_d, mes_delta=delta_mes_d
+                )}
+                {matrix_row(
+                  '<span style="font-family:var(--mono);color:var(--accent);font-size:13px;font-weight:600">Q</span> &nbsp;UNIDADES',
+                  hoy_q, mes_q, u12m_q, sparks["qty"]
+                )}
+                <tr>
+                  <td colspan="5" style="padding:22px 0 6px;border-top:1px solid var(--hairline)">
+                    <div style="font-size:10.5px;font-weight:600;color:var(--ink-muted);text-transform:uppercase;letter-spacing:0.8px">Por unidad de negocio</div>
+                  </td>
+                </tr>
+                {matrix_row("RETAIL",    rv["hoy"], rv["mes"], rv["u12m"], sparks["retail"], canal_size=19)}
+                {matrix_row("HOGAR",     hv["hoy"], hv["mes"], hv["u12m"], sparks["hogar"],  canal_size=19)}
+                {matrix_row("E-COMMERCE",ev["hoy"], ev["mes"], ev["u12m"], sparks["ecomm"],  canal_size=19)}
+              </tbody>
+            </table>
+          </div>
+
+          <div style="display:flex;flex-direction:column">
+            <!-- Saldos -->
+            <div class="side-card">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+                <div style="font-size:11px;font-weight:600;color:var(--ink-muted);text-transform:uppercase;letter-spacing:0.7px">Saldos comerciales</div>
+                <span style="font-size:11px;color:var(--ink-muted);font-family:var(--mono)">U$D</span>
+              </div>
+              <div style="display:flex;align-items:baseline;gap:6px">
+                <span style="font-family:var(--mono);font-size:13px;color:var(--ink-muted)">$</span>
+                <span style="font-family:var(--mono);font-size:32px;font-weight:600;color:var(--ink)">{deuda["TOTCTA"].sum()/1e6:,.2f}</span>
+                <span style="font-family:var(--mono);font-size:15px;color:var(--ink-sub);font-weight:500">M</span>
+              </div>
+            </div>
+
+            <!-- STK / PND / ING -->
+            <div class="side-card" style="padding:6px 20px">
+              {"".join([
+                f'<div style="display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-top:{"none" if i==0 else "1px solid var(--hairline-soft)"}">'
+                f'<div><div style="font-size:10.5px;font-weight:600;color:var(--ink-muted);letter-spacing:0.6px;font-family:var(--mono)">{r["label"]}</div>'
+                f'<div style="font-size:12px;color:var(--ink-sub);margin-top:1px">{r["full"]}</div></div>'
+                f'{num_html(r["val"],20,r["color"])}</div>'
+                for i, r in enumerate([
+                  {"label":"STK","full":"Stock",      "val":stock["DISPONIBLE"].sum(), "color":"oklch(22% 0.01 260)"},
+                  {"label":"PND","full":"Pendientes", "val":pendientes_pos["CANTID"].sum(), "color":"oklch(55% 0.18 25)"},
+                  {"label":"ING","full":"Ingresos",   "val":stock["OC"].sum(), "color":"oklch(22% 0.01 260)"},
+                ])
+              ])}
+            </div>
+
+            <!-- Pend Facturar / Preventa -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+              {"".join([
+                f'<div class="side-card" style="margin:0;padding:14px 16px">'
+                f'<div style="font-size:10.5px;font-weight:600;color:var(--ink-muted);text-transform:uppercase;letter-spacing:0.6px">{r["label"]}</div>'
+                f'<div style="display:flex;align-items:baseline;gap:4px;margin-top:8px">'
+                f'<span style="font-family:var(--mono);font-size:11px;color:var(--ink-muted);font-weight:500">U$D</span>'
+                f'<span style="font-family:var(--mono);font-size:22px;font-weight:600;color:var(--pos)">{r["val"]}</span></div></div>'
+                for r in [
+                  {"label":"PEND. FACTURAR","val": f'{pend_fact_usd/1000:.1f}K'},
+                  {"label":"PREVENTA",      "val": f'{preventa_usd/1000:.1f}K'},
+                ]
+              ])}
+            </div>
+
+            <!-- TC -->
+            <div class="side-card" style="display:flex;align-items:center;justify-content:space-between">
+              <div>
+                <div style="font-size:10.5px;font-weight:600;color:var(--ink-muted);text-transform:uppercase;letter-spacing:0.6px">Tipo de cambio</div>
+                <div style="font-size:11px;color:var(--ink-muted);margin-top:3px;font-family:var(--mono)">{datetime.now().strftime("%d %b %Y · %H:%M")}</div>
+              </div>
+              {num_html(dolar_hoy, 22, "oklch(22% 0.01 260)", 600)}
+            </div>
+          </div>
+        </div>
+        """
+
+        # Inject CSS + render
         st.markdown("""
         <style>
-        .lkr-card { background:#FFFFFF; color:#1A1A1A; border-radius:12px; padding:14px 18px;
-                    box-shadow:0 2px 8px rgba(0,0,0,.15); border:1px solid rgba(15,191,239,.3); }
-        .lkr-head { text-align:center; font-weight:700; font-size:0.85rem; padding:10px 14px;
-                    border-radius:10px 10px 0 0; color:white; letter-spacing:1px; }
-        .lkr-head-hoy  { background:#4B57C9; }
-        .lkr-head-mes  { background:#3E4BCC; }
-        .lkr-head-u12m { background:#2E8555; }
-        .lkr-head-sldc { background:#2E8AD6; }
-        .lkr-head-stk  { background:#2E8AD6; }
-        .lkr-head-pnd  { background:#D04444; }
-        .lkr-head-ing  { background:#8D8717; }
-        .lkr-head-pf   { background:#C93B3B; }
-        .lkr-head-pv   { background:#C93B3B; }
-        .lkr-row-label { background:#3E4BCC; color:white; padding:10px 14px; font-weight:700;
-                         border-radius:10px 0 0 10px; display:flex; align-items:center; justify-content:center; }
-        .lkr-value       { font-size:1.55rem; font-weight:700; color:#2E4A9C; }
-        .lkr-value-q     { color:#8B00CC; }
-        .lkr-value-usd   { color:#2E8555; }
-        .lkr-value-small { font-size:1.2rem; }
-        .lkr-value-red   { color:#D04444; }
-        .lkr-value-gold  { color:#8D8717; }
+        .mx-wrap { display:grid; grid-template-columns:1fr 320px; gap:18px; font-family:var(--sans); color:var(--ink); }
+        .mx-card { background:#fff; border:1px solid var(--hairline); border-radius:12px; padding:20px 24px 24px; }
+        .mx-table { width:100%; border-collapse:collapse; margin-top:14px; }
+        .mx-table td, .mx-table th { font-family:var(--sans); }
+        .side-card { background:#fff; border:1px solid var(--hairline); border-radius:12px; padding:18px 20px; margin-bottom:14px; }
         </style>
         """, unsafe_allow_html=True)
+        st.markdown(matrix_html, unsafe_allow_html=True)
 
-        def _fmt_ars(v): return f"{v:,.0f}" if pd.notna(v) else "—"
-        def _fmt_usd(v): return f"{v:,.0f}" if pd.notna(v) else "—"
-        def _fmt_q(v):   return f"{v:,.0f}" if pd.notna(v) else "—"
-
-        col_main, col_side = st.columns([3, 1])
-
-        with col_main:
-            h1, h2, h3, h4 = st.columns([1, 2, 2, 2])
-            h1.markdown("&nbsp;", unsafe_allow_html=True)
-            h2.markdown('<div class="lkr-head lkr-head-hoy">HOY</div>',  unsafe_allow_html=True)
-            h3.markdown('<div class="lkr-head lkr-head-mes">MES</div>',  unsafe_allow_html=True)
-            h4.markdown('<div class="lkr-head lkr-head-u12m">U12M U$D</div>', unsafe_allow_html=True)
-
-            r1, r2, r3, r4 = st.columns([1, 2, 2, 2])
-            r1.markdown('<div class="lkr-row-label">$</div>', unsafe_allow_html=True)
-            r2.markdown(f'<div class="lkr-card" style="text-align:center"><div class="lkr-value">{_fmt_ars(v_hoy["Total"].sum())}</div></div>', unsafe_allow_html=True)
-            r3.markdown(f'<div class="lkr-card" style="text-align:center"><div class="lkr-value">{_fmt_ars(v_mes["Total"].sum())}</div></div>', unsafe_allow_html=True)
-            r4.markdown(f'<div class="lkr-card" style="text-align:center"><div class="lkr-value lkr-value-usd">{_fmt_usd(v_u12m["Total_USD"].sum())}</div></div>', unsafe_allow_html=True)
-
-            q1, q2, q3, q4 = st.columns([1, 2, 2, 2])
-            q1.markdown('<div class="lkr-row-label" style="background:#6B2DCC">Q</div>', unsafe_allow_html=True)
-            q2.markdown(f'<div class="lkr-card" style="text-align:center"><div class="lkr-value lkr-value-q">{_fmt_q(v_hoy["Cantidad"].sum())}</div></div>', unsafe_allow_html=True)
-            q3.markdown(f'<div class="lkr-card" style="text-align:center"><div class="lkr-value lkr-value-q">{_fmt_q(v_mes["Cantidad"].sum())}</div></div>', unsafe_allow_html=True)
-            q4.markdown(f'<div class="lkr-card" style="text-align:center"><div class="lkr-value lkr-value-q">{_fmt_q(v_u12m["Cantidad"].sum())}</div></div>', unsafe_allow_html=True)
-
-            st.markdown("<br>", unsafe_allow_html=True)
-
-            for canal, color in [("RETAIL","#3E4BCC"), ("HOGAR","#3E4BCC"), ("ECOMM","#3E4BCC")]:
-                ars_h, usd_h, _ = _canal_metrics(v_hoy,  canal)
-                ars_m, usd_m, _ = _canal_metrics(v_mes,  canal)
-                _, usd_u, _     = _canal_metrics(v_u12m, canal)
-                c1, c2, c3, c4 = st.columns([1, 2, 2, 2])
-                c1.markdown(f'<div class="lkr-row-label" style="background:{color}">{canal}</div>', unsafe_allow_html=True)
-                ars_h_cls = "lkr-value-red" if ars_h < 0 else ""
-                c2.markdown(f'<div class="lkr-card" style="text-align:center"><div class="lkr-value lkr-value-small {ars_h_cls}">{_fmt_ars(ars_h)}</div></div>', unsafe_allow_html=True)
-                c3.markdown(f'<div class="lkr-card" style="text-align:center"><div class="lkr-value lkr-value-small">{_fmt_ars(ars_m)}</div></div>', unsafe_allow_html=True)
-                c4.markdown(f'<div class="lkr-card" style="text-align:center"><div class="lkr-value lkr-value-small lkr-value-usd">{_fmt_usd(usd_u)}</div></div>', unsafe_allow_html=True)
-
-            st.markdown("<br>", unsafe_allow_html=True)
-
-            p1, p2, p3 = st.columns([1, 2, 2])
-            pend_fact_usd = pendientes_pos["Import"].sum() / dolar_hoy if dolar_hoy else 0
-            preventa_usd  = 0
-            if "nCntEstimada" in pendientes_pos.columns:
-                preventa_usd = (pendientes_pos["nCntEstimada"] * pendientes_pos["Import"] /
-                                pendientes_pos["CANTID"].replace(0, 1)).sum() / dolar_hoy if dolar_hoy else 0
-            p2.markdown('<div class="lkr-head lkr-head-pf">PEND FACTURAR U$D</div>', unsafe_allow_html=True)
-            p2.markdown(f'<div class="lkr-card" style="text-align:center"><div class="lkr-value lkr-value-usd">$ {pend_fact_usd/1000:.2f}K</div></div>', unsafe_allow_html=True)
-            p3.markdown('<div class="lkr-head lkr-head-pv">PREVENTA U$D</div>', unsafe_allow_html=True)
-            p3.markdown(f'<div class="lkr-card" style="text-align:center"><div class="lkr-value lkr-value-usd">$ {preventa_usd/1000:.2f}K</div></div>', unsafe_allow_html=True)
-
-        with col_side:
-            st.markdown('<div class="lkr-head lkr-head-sldc">🟡 SALDOS COMERCIALES</div>', unsafe_allow_html=True)
-            saldo = deuda["TOTCTA"].sum()
-            st.markdown(f'<div class="lkr-card" style="text-align:center"><div class="lkr-value">$ {saldo/1e6:.2f}M</div></div>', unsafe_allow_html=True)
-            st.markdown("<br>", unsafe_allow_html=True)
-
-            stk = stock["DISPONIBLE"].sum()
-            pnd = pendientes_pos["CANTID"].sum()
-            ing = stock["OC"].sum()
-
-            s1, s2 = st.columns([1, 3])
-            s1.markdown('<div class="lkr-head lkr-head-stk" style="padding:14px 8px;margin:0">STK</div>', unsafe_allow_html=True)
-            s2.markdown(f'<div class="lkr-card" style="text-align:center;padding:10px"><div class="lkr-value lkr-value-small">{_fmt_q(stk)}</div></div>', unsafe_allow_html=True)
-
-            p1_, p2_ = st.columns([1, 3])
-            p1_.markdown('<div class="lkr-head lkr-head-pnd" style="padding:14px 8px;margin:0">PND</div>', unsafe_allow_html=True)
-            p2_.markdown(f'<div class="lkr-card" style="text-align:center;padding:10px"><div class="lkr-value lkr-value-small lkr-value-red">{_fmt_q(pnd)}</div></div>', unsafe_allow_html=True)
-
-            i1, i2 = st.columns([1, 3])
-            i1.markdown('<div class="lkr-head lkr-head-ing" style="padding:14px 8px;margin:0">ING</div>', unsafe_allow_html=True)
-            i2.markdown(f'<div class="lkr-card" style="text-align:center;padding:10px"><div class="lkr-value lkr-value-small lkr-value-gold">{_fmt_q(ing)}</div></div>', unsafe_allow_html=True)
-
-            st.markdown("<br><br>", unsafe_allow_html=True)
-            st.markdown(f'<div class="lkr-card" style="text-align:center;font-size:0.85rem;color:#555">{datetime.now().strftime("%b %d, %Y, %I:%M:%S %p")}</div>', unsafe_allow_html=True)
-            st.markdown(f'<div class="lkr-card" style="text-align:center;font-weight:700;color:#2E4A9C">{dolar_hoy:,.2f}</div>', unsafe_allow_html=True)
-
-        st.caption("💡 Clasificación RETAIL/HOGAR/ECOMM: Vendedor contiene 'GER' → RETAIL, Cliente contiene 'CLIENTE CONTADO/PARA' → ECOMM, resto → HOGAR.")
+        st.caption("Clasificación RETAIL/HOGAR/ECOMM: Vendedor contiene 'GER' → RETAIL, Cliente contiene 'CLIENTE CONTADO/PARA' → ECOMM, resto → HOGAR.")
 
     # ────────────────────────────── TAB 1: VENTAS
     with tab1:
         cf1, cf2, cf3, cf4 = st.columns([2, 2, 2, 2])
         with cf1:
             marcas_disp = sorted(ventas_pos["Marca"].dropna().unique().tolist())
-            marca_sel = st.multiselect("🏷️ Marca", marcas_disp, placeholder="Todas las marcas", key="f_marca")
+            marca_sel = st.multiselect("Marca", marcas_disp, placeholder="Todas las marcas", key="f_marca")
         with cf2:
             cats_disp = sorted(ventas_pos["SubCategoria"].dropna().unique().tolist())
-            cat_sel = st.multiselect("📂 Categoría", cats_disp, placeholder="Todas las categorías", key="f_cat")
+            cat_sel = st.multiselect("Categoría", cats_disp, placeholder="Todas las categorías", key="f_cat")
         with cf3:
             vend_disp = sorted(ventas_pos["Vendedor"].dropna().unique().tolist())
-            vend_sel = st.multiselect("👤 Vendedor", vend_disp, placeholder="Todos", key="f_vend")
+            vend_sel = st.multiselect("Vendedor", vend_disp, placeholder="Todos", key="f_vend")
         with cf4:
             u12m_start = (pd.Timestamp.today() - pd.DateOffset(months=12)).date()
             f_min = ventas_pos["Fecha"].min().date()
             f_max = ventas_pos["Fecha"].max().date()
-            rango_v = st.date_input("📅 Período (default: U12M)",
+            rango_v = st.date_input("Período (default: U12M)",
                                     value=(max(u12m_start, f_min), f_max),
                                     min_value=f_min, max_value=f_max, key="f_fecha")
 
@@ -541,109 +730,149 @@ def dashboard():
         if isinstance(rango_v, (tuple, list)) and len(rango_v) == 2:
             vf = vf[(vf["Fecha"].dt.date >= rango_v[0]) & (vf["Fecha"].dt.date <= rango_v[1])]
 
+        # KPI strip
+        kpi1, kpi2 = st.columns(2)
+        total_usd = vf["Total_USD"].sum()
+        total_q   = vf["Cantidad"].sum()
+        with kpi1:
+            st.markdown(
+                f'<div style="background:#fff;border:1px solid var(--hairline);border-radius:12px;'
+                f'padding:16px 20px;margin-bottom:8px">'
+                f'<div style="font-size:10.5px;font-weight:600;color:var(--pos);text-transform:uppercase;'
+                f'letter-spacing:0.7px;margin-bottom:6px">Facturación U$D</div>'
+                f'{num_html(total_usd, 28, "oklch(52% 0.14 150)")}'
+                f'</div>',
+                unsafe_allow_html=True
+            )
+        with kpi2:
+            st.markdown(
+                f'<div style="background:#fff;border:1px solid var(--hairline);border-radius:12px;'
+                f'padding:16px 20px;margin-bottom:8px">'
+                f'<div style="font-size:10.5px;font-weight:600;color:var(--accent);text-transform:uppercase;'
+                f'letter-spacing:0.7px;margin-bottom:6px">Cantidad vendida</div>'
+                f'{num_html(total_q, 28, "oklch(55% 0.17 265)")}'
+                f'</div>',
+                unsafe_allow_html=True
+            )
+
         st.divider()
 
-        if vf["Fecha"].notna().any():
-            vm = vf.groupby(vf["Fecha"].dt.to_period("M")).agg(
-                Total=("Total","sum"), Total_USD=("Total_USD","sum"),
-                dolar_prom=("dolar_dia","mean")
-            ).reset_index()
-            vm["Mes"] = vm["Fecha"].astype(str)
-            fig_dual = go.Figure()
-            fig_dual.add_trace(go.Bar(name="Ventas ARS", x=vm["Mes"], y=vm["Total"],
-                                      marker_color="#0FBFEF", yaxis="y1", opacity=0.7))
-            fig_dual.add_trace(go.Scatter(name="Ventas USD", x=vm["Mes"], y=vm["Total_USD"],
-                                          mode="lines+markers", marker_color="#f7c948",
-                                          yaxis="y2", line=dict(width=3)))
-            fig_dual.add_trace(go.Scatter(name="Dólar promedio", x=vm["Mes"], y=vm["dolar_prom"],
-                                          mode="lines", line=dict(color="#e05c5c", dash="dot", width=2),
-                                          yaxis="y3"))
-            fig_dual.update_layout(
-                paper_bgcolor="#FFFFFF", plot_bgcolor="#FAFBFF",
-                font=dict(color="#1A1D3A", family="Inter, sans-serif"),
-                margin=dict(t=50, b=60, l=40, r=80),
-                title=dict(text="Ventas mensuales: ARS vs USD vs Tipo de cambio",
-                           font=dict(color="#160B7C", size=15)),
-                xaxis=dict(gridcolor="rgba(22,11,124,0.08)", tickfont=dict(color="#6B7AA5")),
-                yaxis =dict(title=dict(text="ARS", font=dict(color="#0FBFEF", size=12)),
-                            gridcolor="rgba(22,11,124,0.08)", tickfont=dict(color="#6B7AA5")),
-                yaxis2=dict(title=dict(text="USD", font=dict(color="#E8A800", size=12)),
-                            overlaying="y", side="right", gridcolor="rgba(0,0,0,0)",
-                            tickfont=dict(color="#6B7AA5")),
-                yaxis3=dict(title=dict(text="$/USD", font=dict(color="#D04462", size=12)),
-                            overlaying="y", side="right", anchor="free",
-                            position=0.97, gridcolor="rgba(0,0,0,0)",
-                            tickfont=dict(color="#6B7AA5")),
-                legend=dict(orientation="h", y=-0.2, font=dict(color="#1A1D3A")),
-                hovermode="x unified",
+        # Ranking data
+        top_vend = (vf.groupby("Vendedor")["Total_USD"].sum()
+                    .sort_values(ascending=False).head(8).reset_index())
+        top_cli  = (vf.groupby("Cliente")["Total_USD"].sum()
+                    .sort_values(ascending=False).head(8).reset_index())
+        top_mod  = (vf.groupby("Modelo")["Total_USD"].sum()
+                    .sort_values(ascending=False).head(8).reset_index())
+        top_cat  = (vf.groupby("SubCategoria").agg(Q=("Cantidad","sum"),
+                    Total_USD=("Total_USD","sum")).sort_values("Q",ascending=False).head(8).reset_index())
+        top_marca = (vf.groupby("Marca")["Total_USD"].sum()
+                     .sort_values(ascending=False).reset_index())
+
+        # 3-column layout
+        col_left, col_mid, col_right = st.columns([1.4, 1, 1])
+
+        with col_left:
+            # Bar chart: monthly USD totals
+            if vf["Fecha"].notna().any():
+                vm = vf.groupby(vf["Fecha"].dt.to_period("M")).agg(
+                    Total_USD=("Total_USD","sum")
+                ).reset_index()
+                vm["Mes"] = vm["Fecha"].astype(str)
+                fig_bar = go.Figure()
+                fig_bar.add_trace(go.Bar(
+                    name="Ventas USD", x=vm["Mes"], y=vm["Total_USD"],
+                    marker_color="oklch(55% 0.17 265)",
+                    hovertemplate="<b>%{x}</b><br>U$D %{y:,.0f}<extra></extra>"
+                ))
+                fig_bar.update_layout(
+                    **PLOTLY_THEME,
+                    title=dict(text="Ventas mensuales U$D"),
+                    showlegend=False,
+                    xaxis_tickangle=-40,
+                )
+                st.plotly_chart(fig_bar, use_container_width=True)
+
+            # Brand donut
+            if not top_marca.empty:
+                fig_donut = px.pie(
+                    top_marca, values="Total_USD", names="Marca",
+                    title="Mix por Marca", hole=0.45,
+                    color_discrete_sequence=[
+                        "oklch(55% 0.17 265)", "oklch(42% 0.17 265)",
+                        "oklch(32% 0.09 265)", "oklch(62% 0.12 265)",
+                        "oklch(70% 0.10 265)"
+                    ]
+                )
+                fig_donut.update_layout(**PLOTLY_THEME)
+                st.plotly_chart(fig_donut, use_container_width=True)
+
+        with col_mid:
+            # Vendedor table
+            st.markdown(
+                rank_table_html(
+                    "Top Vendedores", top_vend, "Total_USD", "Vendedor",
+                    "oklch(55% 0.17 265)", "oklch(96% 0.03 265)"
+                ),
+                unsafe_allow_html=True
             )
-            st.plotly_chart(fig_dual, use_container_width=True)
+            st.markdown("<div style='height:14px'></div>", unsafe_allow_html=True)
+            # Cliente table
+            st.markdown(
+                rank_table_html(
+                    "Top Clientes", top_cli, "Total_USD", "Cliente",
+                    "oklch(42% 0.17 265)", "oklch(96% 0.03 265)"
+                ),
+                unsafe_allow_html=True
+            )
 
-        top_usd = (vf.groupby("Modelo")["Total_USD"]
-                   .sum().sort_values(ascending=False).head(12).reset_index())
-        fig_um = px.bar(top_usd, x="Total_USD", y="Modelo", orientation="h",
-                        title="🖱️ Clic en modelo para ver detalle mensual",
-                        color="Total_USD", color_continuous_scale="YlOrBr")
-        fig_um.update_layout(**PLOTLY_THEME, showlegend=False, coloraxis_showscale=False)
-        sel_mod = st.plotly_chart(fig_um, use_container_width=True,
-                                  on_select="rerun", key="sel_mod")
-
-        mod_sel = get_sel(sel_mod)
-        if mod_sel:
-            st.divider()
-            st.subheader(f"📦 Detalle mensual — {mod_sel}")
-            df_m = vf[vf["Modelo"] == mod_sel].copy()
-            df_m["Mes"] = df_m["Fecha"].dt.to_period("M").astype(str)
-            dm = df_m.groupby("Mes").agg(Unidades=("Cantidad","sum"),
-                                          Total_USD=("Total_USD","sum")).reset_index()
-            fc1, fc2 = st.columns(2)
-            with fc1:
-                fig_dd = px.bar(dm, x="Mes", y="Total_USD", text="Unidades",
-                                title=f"{mod_sel} — USD por mes",
-                                color="Total_USD", color_continuous_scale="YlOrBr")
-                fig_dd.update_traces(texttemplate="%{text:.0f} u.", textposition="outside")
-                fig_dd.update_layout(**PLOTLY_THEME, coloraxis_showscale=False)
-                fig_dd.update_xaxes(tickangle=-40)
-                st.plotly_chart(fig_dd, use_container_width=True)
-            with fc2:
-                fig_dd2 = px.bar(dm, x="Mes", y="Unidades",
-                                 title=f"{mod_sel} — Unidades por mes",
-                                 color="Unidades", color_continuous_scale="Blues")
-                fig_dd2.update_layout(**PLOTLY_THEME, coloraxis_showscale=False)
-                fig_dd2.update_xaxes(tickangle=-40)
-                st.plotly_chart(fig_dd2, use_container_width=True)
-            dm_fmt = dm.copy()
-            dm_fmt["Total_USD"] = dm_fmt["Total_USD"].map("U$D {:,.0f}".format)
-            dm_fmt["Unidades"]  = dm_fmt["Unidades"].map("{:,.0f}".format)
-            st.dataframe(dm_fmt, use_container_width=True, hide_index=True)
-            st.divider()
-
-        bm1, bm2 = st.columns(2)
-        with bm1:
-            marca_agg = (vf.groupby("Marca")["Total_USD"].sum()
-                         .sort_values(ascending=False).reset_index())
-            fig_marca = px.pie(marca_agg, values="Total_USD", names="Marca",
-                               title="Ventas USD por Marca", hole=0.4,
-                               color_discrete_sequence=px.colors.sequential.Teal)
-            fig_marca.update_layout(**PLOTLY_THEME)
-            st.plotly_chart(fig_marca, use_container_width=True)
-        with bm2:
-            cat_agg = (vf.groupby("SubCategoria")["Total_USD"].sum()
-                       .sort_values(ascending=False).reset_index())
-            fig_cat_v = px.bar(cat_agg, x="Total_USD", y="SubCategoria", orientation="h",
-                               title="Ventas USD por Categoría",
-                               color="Total_USD", color_continuous_scale="Blues")
-            fig_cat_v.update_layout(**PLOTLY_THEME, coloraxis_showscale=False)
-            st.plotly_chart(fig_cat_v, use_container_width=True)
-
-        st.subheader("Top 15 Clientes — USD")
-        cli_usd = (vf.groupby("Cliente")
-                   .agg(Total_USD=("Total_USD","sum"), TC_Prom=("dolar_dia","mean"))
-                   .sort_values("Total_USD", ascending=False).head(15).reset_index())
-        cli_usd["Total_USD"] = cli_usd["Total_USD"].map("U$D {:,.0f}".format)
-        cli_usd["TC_Prom"]   = cli_usd["TC_Prom"].map("${:,.0f}".format)
-        cli_usd.columns      = ["Cliente","Ventas USD","TC Promedio"]
-        st.dataframe(cli_usd, use_container_width=True, hide_index=True)
+        with col_right:
+            # Modelo table
+            st.markdown(
+                rank_table_html(
+                    "Top Modelos", top_mod, "Total_USD", "Modelo",
+                    "oklch(55% 0.17 265)", "oklch(96% 0.03 265)"
+                ),
+                unsafe_allow_html=True
+            )
+            st.markdown("<div style='height:14px'></div>", unsafe_allow_html=True)
+            # SubCat table with Q column
+            if not top_cat.empty:
+                max_q = top_cat["Q"].max()
+                rows_sc = ""
+                for i, (_, row) in enumerate(top_cat.iterrows()):
+                    pct = float(row["Q"]) / max_q if max_q > 0 else 0
+                    intensity = int(pct * 35)
+                    accent_c = "oklch(32% 0.09 265)"
+                    text_color = "#fff" if pct > 0.55 else accent_c
+                    q_val = int(row["Q"])
+                    q_str = f"{q_val:,}".replace(",", ".")
+                    usd_val = row["Total_USD"]
+                    if usd_val >= 1e3:
+                        usd_str = f"{usd_val/1e3:.0f}K"
+                    else:
+                        usd_str = f"{int(usd_val):,}".replace(",", ".")
+                    label = str(row["SubCategoria"])[:22]
+                    rows_sc += (
+                        f'<div style="display:flex;align-items:center;justify-content:space-between;'
+                        f'padding:8px 14px;border-bottom:1px solid var(--hairline-soft);gap:6px">'
+                        f'<span style="font-size:11px;color:var(--ink-muted);font-family:var(--mono);min-width:18px">{i+1}.</span>'
+                        f'<span style="font-size:12px;color:var(--ink);font-weight:500;flex:1;'
+                        f'overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{label}</span>'
+                        f'<span style="font-family:var(--mono);font-size:11px;color:var(--ink-muted);margin-right:6px">{usd_str}</span>'
+                        f'<span style="padding:3px 8px;border-radius:4px;font-family:var(--mono);font-weight:600;font-size:12px;'
+                        f'background:color-mix(in oklch,{accent_c} {intensity}%,#fff);color:{text_color}">{q_str}</span>'
+                        f'</div>'
+                    )
+                st.markdown(
+                    f'<div style="background:#fff;border:1px solid var(--hairline);border-radius:12px;'
+                    f'display:flex;flex-direction:column;overflow:hidden">'
+                    f'<div style="padding:10px 14px;border-bottom:1px solid var(--hairline-soft);'
+                    f'font-size:11px;font-weight:600;color:oklch(32% 0.09 265);letter-spacing:-0.1px">'
+                    f'Top Categorías &nbsp;<span style="font-size:10px;color:var(--ink-muted);font-weight:400">Q · U$D</span></div>'
+                    f'{rows_sc}</div>',
+                    unsafe_allow_html=True
+                )
 
     # ────────────────────────────── TAB 2: DEUDA
     with tab2:
@@ -669,7 +898,7 @@ def dashboard():
                                     marker_color="#FF5E7E", customdata=top_d["VTMCLH_NOMBRE"],
                                     hovertemplate="%{customdata}<br>$%{y:,.0f}<extra></extra>"))
             fig_dd.add_trace(go.Bar(name="Límite crédito", x=top_d["nc"], y=top_d["LIMCRED"],
-                                    marker_color="#0FBFEF"))
+                                    marker_color="oklch(55% 0.17 265)"))
             fig_dd.update_layout(**PLOTLY_THEME, title="🖱️ Clic en cliente para ver antigüedad",
                                  barmode="group")
             fig_dd.update_xaxes(tickangle=-40)
@@ -701,18 +930,18 @@ def dashboard():
                     fig_g = go.Figure(go.Indicator(
                         mode="gauge+number", value=uso_pct,
                         title={"text":"Uso de límite de crédito (%)",
-                               "font":{"color":"#160B7C","size":14}},
-                        gauge={"axis":{"range":[0,100],"tickcolor":"#6B7AA5"},
-                               "bar":{"color":"#160B7C"},"bgcolor":"#F0F3FA",
-                               "borderwidth":2,"bordercolor":"#E2E6F0",
-                               "steps":[{"range":[0,60],"color":"#D4F5E9"},
-                                        {"range":[60,80],"color":"#FFE9C7"},
-                                        {"range":[80,100],"color":"#FFD3DC"}],
-                               "threshold":{"line":{"color":"#D04462","width":3},"value":80}},
-                        number={"suffix":"%","valueformat":".1f","font":{"color":"#160B7C","size":34}}
+                               "font":{"color":"oklch(42% 0.17 265)","size":14}},
+                        gauge={"axis":{"range":[0,100],"tickcolor":"oklch(62% 0.01 260)"},
+                               "bar":{"color":"oklch(55% 0.17 265)"},"bgcolor":"#F8F8F8",
+                               "borderwidth":2,"bordercolor":"oklch(92% 0.005 260)",
+                               "steps":[{"range":[0,60],"color":"oklch(96% 0.04 150)"},
+                                        {"range":[60,80],"color":"oklch(97% 0.05 85)"},
+                                        {"range":[80,100],"color":"oklch(96% 0.04 25)"}],
+                               "threshold":{"line":{"color":"oklch(55% 0.18 25)","width":3},"value":80}},
+                        number={"suffix":"%","valueformat":".1f","font":{"color":"oklch(22% 0.01 260)","size":34}}
                     ))
                     fig_g.update_layout(paper_bgcolor="#FFFFFF",
-                                        font=dict(color="#1A1D3A",family="Inter, sans-serif"),
+                                        font=dict(color="oklch(22% 0.01 260)",family="Inter, sans-serif"),
                                         height=300, margin=dict(t=60,b=20,l=20,r=20))
                     st.plotly_chart(fig_g, use_container_width=True)
                 st.divider()
@@ -739,14 +968,14 @@ def dashboard():
                         name = sub["NOMBRE_DEPOSITO"].iloc[0]
                         if name and str(name).strip():
                             dep_labels[d] = f"{d} — {str(name).strip()}"
-            dep_sel = st.multiselect("🏭 Depósito", dep_opts, default=dep_opts,
+            dep_sel = st.multiselect("Depósito", dep_opts, default=dep_opts,
                                      format_func=lambda d: dep_labels.get(d, str(d)), key="st_dep")
         with sf2c:
             s_marcas = sorted(stock_pos["Marca"].dropna().unique().tolist())
-            s_marca_sel = st.multiselect("🏷️ Marca", s_marcas, placeholder="Todas las marcas", key="st_marca")
+            s_marca_sel = st.multiselect("Marca", s_marcas, placeholder="Todas las marcas", key="st_marca")
         with sf3c:
             s_cats = sorted(stock_pos["SubCategoria"].dropna().unique().tolist())
-            s_cat_sel = st.multiselect("📂 Categoría", s_cats, placeholder="Todas las categorías", key="st_cat")
+            s_cat_sel = st.multiselect("Categoría", s_cats, placeholder="Todas las categorías", key="st_cat")
 
         sf = stock_pos.copy()
         if dep_sel:     sf = sf[sf["CODIGO_DEPOSITO"].isin(dep_sel)]
@@ -902,7 +1131,7 @@ def dashboard():
             gp = df_pv.groupby("Mes")["SALDO"].sum().reset_index()
             fig_pv = px.area(gp, x="Mes", y="SALDO",
                              title=f"{prov_full} — gasto mensual",
-                             color_discrete_sequence=["#0FBFEF"])
+                             color_discrete_sequence=["oklch(55% 0.17 265)"])
             fig_pv.update_layout(**PLOTLY_THEME)
             fig_pv.update_xaxes(tickangle=-40)
             st.plotly_chart(fig_pv, use_container_width=True)
