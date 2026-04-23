@@ -205,6 +205,37 @@ st.markdown("""
     .stDateInput   [data-baseweb="input"]  > div:hover {
         border-color: var(--accent) !important;
     }
+    /* ── Dropdown popup (multiselect open state) ───────────────────── */
+    [data-baseweb="popover"],
+    [data-baseweb="popover"] > div,
+    ul[role="listbox"],
+    [data-baseweb="menu"] {
+        background: var(--surface) !important;
+        border: 1px solid var(--hairline) !important;
+        border-radius: 10px !important;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.10) !important;
+    }
+    [role="option"] {
+        background: var(--surface) !important;
+        color: var(--ink) !important;
+    }
+    [role="option"]:hover,
+    [role="option"][aria-selected="true"] {
+        background: var(--accent-soft) !important;
+        color: var(--accent-ink) !important;
+    }
+    /* Selected tags inside multiselect */
+    [data-baseweb="tag"] {
+        background: var(--accent-soft) !important;
+        color: var(--accent-ink) !important;
+        border: 1px solid var(--hairline) !important;
+    }
+    [data-baseweb="tag"] span { color: var(--accent-ink) !important; }
+    /* Date picker popup */
+    [data-baseweb="calendar"] {
+        background: var(--surface) !important;
+        color: var(--ink) !important;
+    }
 
     /* ── Misc ──────────────────────────────────────────────────────── */
     hr {
@@ -721,21 +752,23 @@ def dashboard():
 
     # ────────────────────────────── TAB 1: VENTAS
     with tab1:
-        cf1, cf2, cf3, cf4 = st.columns([2, 2, 2, 2])
-        with cf1:
+        # ── Filter row + inline KPIs ──────────────────────────────────────
+        u12m_start = (pd.Timestamp.today() - pd.DateOffset(months=12)).date()
+        f_min = ventas_pos["Fecha"].min().date()
+        f_max = ventas_pos["Fecha"].max().date()
+
+        ff1, ff2, ff3, ff4 = st.columns([2, 2, 2, 2])
+        with ff1:
             marcas_disp = sorted(ventas_pos["Marca"].dropna().unique().tolist())
-            marca_sel = st.multiselect("Marca", marcas_disp, placeholder="Todas las marcas", key="f_marca")
-        with cf2:
+            marca_sel = st.multiselect("Marca", marcas_disp, placeholder="Todas", key="f_marca")
+        with ff2:
             cats_disp = sorted(ventas_pos["SubCategoria"].dropna().unique().tolist())
-            cat_sel = st.multiselect("Categoría", cats_disp, placeholder="Todas las categorías", key="f_cat")
-        with cf3:
+            cat_sel = st.multiselect("Categoría", cats_disp, placeholder="Todas", key="f_cat")
+        with ff3:
             vend_disp = sorted(ventas_pos["Vendedor"].dropna().unique().tolist())
             vend_sel = st.multiselect("Vendedor", vend_disp, placeholder="Todos", key="f_vend")
-        with cf4:
-            u12m_start = (pd.Timestamp.today() - pd.DateOffset(months=12)).date()
-            f_min = ventas_pos["Fecha"].min().date()
-            f_max = ventas_pos["Fecha"].max().date()
-            rango_v = st.date_input("Período (default: U12M)",
+        with ff4:
+            rango_v = st.date_input("Período",
                                     value=(max(u12m_start, f_min), f_max),
                                     min_value=f_min, max_value=f_max, key="f_fecha")
 
@@ -746,42 +779,39 @@ def dashboard():
         if isinstance(rango_v, (tuple, list)) and len(rango_v) == 2:
             vf = vf[(vf["Fecha"].dt.date >= rango_v[0]) & (vf["Fecha"].dt.date <= rango_v[1])]
 
-        # KPI strip
-        kpi1, kpi2 = st.columns(2)
         total_usd = vf["Total_USD"].sum()
-        total_q   = vf["Cantidad"].sum()
-        with kpi1:
-            st.markdown(
-                f'<div style="background:#fff;border:1px solid var(--hairline);border-radius:12px;'
-                f'padding:16px 20px;margin-bottom:8px">'
-                f'<div style="font-size:10.5px;font-weight:600;color:var(--pos);text-transform:uppercase;'
-                f'letter-spacing:0.7px;margin-bottom:6px">Facturación U$D</div>'
-                f'{num_html(total_usd, 28, "oklch(52% 0.14 150)")}'
-                f'</div>',
-                unsafe_allow_html=True
-            )
-        with kpi2:
-            st.markdown(
-                f'<div style="background:#fff;border:1px solid var(--hairline);border-radius:12px;'
-                f'padding:16px 20px;margin-bottom:8px">'
-                f'<div style="font-size:10.5px;font-weight:600;color:var(--accent);text-transform:uppercase;'
-                f'letter-spacing:0.7px;margin-bottom:6px">Cantidad vendida</div>'
-                f'{num_html(total_q, 28, "oklch(55% 0.17 265)")}'
-                f'</div>',
-                unsafe_allow_html=True
-            )
+        total_q   = int(vf["Cantidad"].sum())
 
-        st.divider()
+        # Compact KPI strip (single row, no heavy cards)
+        def _fmt_compact(n):
+            if abs(n) >= 1e6: return f"{n/1e6:.1f}M"
+            if abs(n) >= 1e3: return f"{n/1e3:.0f}K"
+            return f"{int(n):,}"
 
-        # Ranking data
+        st.markdown(
+            f'<div style="display:flex;gap:24px;align-items:center;padding:6px 2px 10px;">'
+            f'<div>'
+            f'<div style="font-size:10px;font-weight:600;color:#43A047;text-transform:uppercase;letter-spacing:0.8px">Facturación U$D</div>'
+            f'<div style="font-family:var(--mono);font-size:26px;font-weight:700;color:#43A047;line-height:1.1">{_fmt_compact(total_usd)}</div>'
+            f'</div>'
+            f'<div style="width:1px;height:36px;background:var(--hairline)"></div>'
+            f'<div>'
+            f'<div style="font-size:10px;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:0.8px">Cantidad vendida</div>'
+            f'<div style="font-family:var(--mono);font-size:26px;font-weight:700;color:var(--accent);line-height:1.1">{_fmt_compact(total_q)}</div>'
+            f'</div>'
+            f'</div>',
+            unsafe_allow_html=True
+        )
+
+        # Ranking data (top 6 rows to keep tables short)
         top_vend = (vf.groupby("Vendedor")["Total_USD"].sum()
-                    .sort_values(ascending=False).head(8).reset_index())
+                    .sort_values(ascending=False).head(6).reset_index())
         top_cli  = (vf.groupby("Cliente")["Total_USD"].sum()
-                    .sort_values(ascending=False).head(8).reset_index())
+                    .sort_values(ascending=False).head(6).reset_index())
         top_mod  = (vf.groupby("Modelo")["Total_USD"].sum()
-                    .sort_values(ascending=False).head(8).reset_index())
+                    .sort_values(ascending=False).head(6).reset_index())
         top_cat  = (vf.groupby("SubCategoria").agg(Q=("Cantidad","sum"),
-                    Total_USD=("Total_USD","sum")).sort_values("Q",ascending=False).head(8).reset_index())
+                    Total_USD=("Total_USD","sum")).sort_values("Q",ascending=False).head(6).reset_index())
         top_marca = (vf.groupby("Marca")["Total_USD"].sum()
                      .sort_values(ascending=False).reset_index())
 
@@ -789,7 +819,6 @@ def dashboard():
         col_left, col_mid, col_right = st.columns([1.4, 1, 1])
 
         with col_left:
-            # Bar chart: monthly USD totals
             if vf["Fecha"].notna().any():
                 vm = vf.groupby(vf["Fecha"].dt.to_period("M")).agg(
                     Total_USD=("Total_USD","sum")
@@ -805,11 +834,12 @@ def dashboard():
                     **PLOTLY_THEME,
                     title_text="Ventas mensuales U$D",
                     showlegend=False,
+                    height=240,
+                    margin=dict(t=32, b=24, l=36, r=10),
                 )
                 fig_bar.update_xaxes(tickangle=-40)
                 st.plotly_chart(fig_bar, use_container_width=True)
 
-            # Brand donut
             if not top_marca.empty:
                 fig_donut = px.pie(
                     top_marca, values="Total_USD", names="Marca",
@@ -818,72 +848,61 @@ def dashboard():
                         C_ACCENT, C_ACCENT_INK, C_ACCENT_MID, C_ACCENT_LT, C_ACCENT_LT2
                     ]
                 )
-                fig_donut.update_layout(**PLOTLY_THEME)
+                fig_donut.update_layout(**PLOTLY_THEME, height=220,
+                                        margin=dict(t=32, b=10, l=10, r=10),
+                                        legend=dict(font=dict(size=11)))
                 st.plotly_chart(fig_donut, use_container_width=True)
 
         with col_mid:
-            # Vendedor table
             st.markdown(
-                rank_table_html(
-                    "Top Vendedores", top_vend, "Total_USD", "Vendedor",
-                    "oklch(55% 0.17 265)", "oklch(96% 0.03 265)"
-                ),
+                rank_table_html("Top Vendedores", top_vend, "Total_USD", "Vendedor",
+                                "oklch(55% 0.17 265)", "oklch(96% 0.03 265)", compact=True),
                 unsafe_allow_html=True
             )
-            st.markdown("<div style='height:14px'></div>", unsafe_allow_html=True)
-            # Cliente table
+            st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
             st.markdown(
-                rank_table_html(
-                    "Top Clientes", top_cli, "Total_USD", "Cliente",
-                    "oklch(42% 0.17 265)", "oklch(96% 0.03 265)"
-                ),
+                rank_table_html("Top Clientes", top_cli, "Total_USD", "Cliente",
+                                "oklch(42% 0.17 265)", "oklch(96% 0.03 265)", compact=True),
                 unsafe_allow_html=True
             )
 
         with col_right:
-            # Modelo table
             st.markdown(
-                rank_table_html(
-                    "Top Modelos", top_mod, "Total_USD", "Modelo",
-                    "oklch(55% 0.17 265)", "oklch(96% 0.03 265)"
-                ),
+                rank_table_html("Top Modelos", top_mod, "Total_USD", "Modelo",
+                                "oklch(55% 0.17 265)", "oklch(96% 0.03 265)", compact=True),
                 unsafe_allow_html=True
             )
-            st.markdown("<div style='height:14px'></div>", unsafe_allow_html=True)
-            # SubCat table with Q column
+            st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
+            # SubCat table
             if not top_cat.empty:
                 max_q = top_cat["Q"].max()
                 rows_sc = ""
+                accent_c = "oklch(32% 0.09 265)"
                 for i, (_, row) in enumerate(top_cat.iterrows()):
                     pct = float(row["Q"]) / max_q if max_q > 0 else 0
                     intensity = int(pct * 35)
-                    accent_c = "oklch(32% 0.09 265)"
                     text_color = "#fff" if pct > 0.55 else accent_c
                     q_val = int(row["Q"])
                     q_str = f"{q_val:,}".replace(",", ".")
                     usd_val = row["Total_USD"]
-                    if usd_val >= 1e3:
-                        usd_str = f"{usd_val/1e3:.0f}K"
-                    else:
-                        usd_str = f"{int(usd_val):,}".replace(",", ".")
+                    usd_str = f"{usd_val/1e3:.0f}K" if usd_val >= 1e3 else str(int(usd_val))
                     label = str(row["SubCategoria"])[:22]
                     rows_sc += (
                         f'<div style="display:flex;align-items:center;justify-content:space-between;'
-                        f'padding:8px 14px;border-bottom:1px solid var(--hairline-soft);gap:6px">'
-                        f'<span style="font-size:11px;color:var(--ink-muted);font-family:var(--mono);min-width:18px">{i+1}.</span>'
+                        f'padding:6px 12px;border-bottom:1px solid var(--hairline-soft);gap:6px">'
+                        f'<span style="font-size:10px;color:var(--ink-muted);font-family:var(--mono);min-width:16px">{i+1}.</span>'
                         f'<span style="font-size:12px;color:var(--ink);font-weight:500;flex:1;'
                         f'overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{label}</span>'
-                        f'<span style="font-family:var(--mono);font-size:11px;color:var(--ink-muted);margin-right:6px">{usd_str}</span>'
-                        f'<span style="padding:3px 8px;border-radius:4px;font-family:var(--mono);font-weight:600;font-size:12px;'
+                        f'<span style="font-family:var(--mono);font-size:10px;color:var(--ink-muted);margin-right:5px">{usd_str}</span>'
+                        f'<span style="padding:2px 7px;border-radius:4px;font-family:var(--mono);font-weight:600;font-size:11px;'
                         f'background:color-mix(in oklch,{accent_c} {intensity}%,#fff);color:{text_color}">{q_str}</span>'
                         f'</div>'
                     )
                 st.markdown(
-                    f'<div style="background:#fff;border:1px solid var(--hairline);border-radius:12px;'
-                    f'display:flex;flex-direction:column;overflow:hidden">'
-                    f'<div style="padding:10px 14px;border-bottom:1px solid var(--hairline-soft);'
-                    f'font-size:11px;font-weight:600;color:oklch(32% 0.09 265);letter-spacing:-0.1px">'
-                    f'Top Categorías &nbsp;<span style="font-size:10px;color:var(--ink-muted);font-weight:400">Q · U$D</span></div>'
+                    f'<div style="background:#fff;border:1px solid var(--hairline);border-radius:12px;overflow:hidden">'
+                    f'<div style="padding:8px 12px;border-bottom:1px solid var(--hairline-soft);'
+                    f'font-size:11px;font-weight:600;color:{accent_c}">'
+                    f'Top Categorías <span style="font-size:10px;color:var(--ink-muted);font-weight:400">Q · U$D</span></div>'
                     f'{rows_sc}</div>',
                     unsafe_allow_html=True
                 )
