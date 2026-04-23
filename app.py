@@ -261,7 +261,6 @@ PLOTLY_THEME = {
     "yaxis": {"gridcolor": C_HAIRLINE, "linecolor": C_HAIRLINE,
               "tickfont": {"color": C_INK_MUTED}},
     "margin": {"t": 40, "b": 30, "l": 40, "r": 20},
-    "title":  {"font": {"color": C_ACCENT_INK, "size": 13, "family": "Inter, sans-serif"}},
 }
 
 
@@ -804,7 +803,7 @@ def dashboard():
                 ))
                 fig_bar.update_layout(
                     **PLOTLY_THEME,
-                    title=dict(text="Ventas mensuales U$D"),
+                    title_text="Ventas mensuales U$D",
                     showlegend=False,
                 )
                 fig_bar.update_xaxes(tickangle=-40)
@@ -914,7 +913,7 @@ def dashboard():
                                     hovertemplate="%{customdata}<br>$%{y:,.0f}<extra></extra>"))
             fig_dd.add_trace(go.Bar(name="Límite crédito", x=top_d["nc"], y=top_d["LIMCRED"],
                                     marker_color=C_ACCENT))
-            fig_dd.update_layout(**PLOTLY_THEME, title="🖱️ Clic en cliente para ver antigüedad",
+            fig_dd.update_layout(**PLOTLY_THEME, title_text="🖱️ Clic en cliente para ver antigüedad",
                                  barmode="group")
             fig_dd.update_xaxes(tickangle=-40)
             sel_deu = st.plotly_chart(fig_dd, use_container_width=True,
