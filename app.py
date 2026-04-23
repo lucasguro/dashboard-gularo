@@ -789,8 +789,8 @@ def dashboard():
                     **PLOTLY_THEME,
                     title=dict(text="Ventas mensuales U$D"),
                     showlegend=False,
-                    xaxis_tickangle=-40,
                 )
+                fig_bar.update_xaxes(tickangle=-40)
                 st.plotly_chart(fig_bar, use_container_width=True)
 
             # Brand donut
