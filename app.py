@@ -291,7 +291,8 @@ PLOTLY_THEME = {
               "tickfont": {"color": C_INK_MUTED}},
     "yaxis": {"gridcolor": C_HAIRLINE, "linecolor": C_HAIRLINE,
               "tickfont": {"color": C_INK_MUTED}},
-    "margin": {"t": 40, "b": 30, "l": 40, "r": 20},
+    # margin as magic attrs (avoids conflict when callers also pass margin=dict())
+    "margin_t": 40, "margin_b": 30, "margin_l": 40, "margin_r": 20,
 }
 
 
